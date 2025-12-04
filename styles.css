@@ -1,14 +1,6 @@
-:root {
-  --sidebar-width: 260px;
-  --sidebar-bg: rgba(15, 23, 42, 0.55);
-  --sidebar-border: rgba(148, 163, 184, 0.5);
-  --accent: #0f766e;
-  --accent-soft: #0d9488;
-  --text-main: #0f172a;
-  --surface: rgba(255, 255, 255, 0.9);
-}
+/* ========== GLOBAL ========== */
 
-/* Reset */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
 * {
   margin: 0;
@@ -16,273 +8,265 @@
   box-sizing: border-box;
 }
 
-/* Page background */
-
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: radial-gradient(circle at top left, #14b8a6, #0f172a 40%, #0f766e 90%);
-  min-height: 100vh;
-  color: var(--text-main);
-}
-
-/* Layout shell */
-
-.app-shell {
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(135deg, #d9e6ef 0%, #eef4f8 100%);
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
-/* Apple style glass sidebar */
+/* ========== SIDEBAR ========== */
 
-.glass-sidebar {
-  width: var(--sidebar-width);
+.sidebar {
+  width: 260px;
+  background: rgba(0, 30, 40, 0.8);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
   padding: 24px 18px;
-  background: var(--sidebar-bg);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-right: 1px solid var(--sidebar-border);
+  color: #fff;
   display: flex;
   flex-direction: column;
-  color: #e5e7eb;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.25),
-              0 20px 40px rgba(0, 0, 0, 0.55);
+  gap: 28px;
+  position: relative;
 }
 
-/* Sidebar logo */
-
-.sidebar-logo {
+.sidebar-header {
+  font-size: 22px;
+  font-weight: 600;
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 28px;
 }
 
-.sidebar-logo-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle at 30% 0%, rgba(255, 255, 255, 0.9), rgba(148, 163, 184, 0.3));
-  color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.6);
-}
-
-.sidebar-logo-text {
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  font-size: 15px;
-}
-
-/* Sidebar menu */
-
-.sidebar-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+/* Sidebar buttons */
 
 .sidebar-item {
-  width: 100%;
+  padding: 14px 18px;
+  border-radius: 14px;
+  color: white;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: none;
-  background: transparent;
-  color: #e5e7eb;
-  font-size: 14px;
-  text-align: left;
-  cursor: pointer;
+  gap: 14px;
   position: relative;
   overflow: hidden;
-  transition: background 0.18s ease, transform 0.18s ease;
+  transition: background 0.2s, transform 0.15s;
 }
 
 .sidebar-item i {
-  font-size: 16px;
+  font-size: 18px;
   width: 22px;
   text-align: center;
 }
 
-.sidebar-item span {
-  white-space: nowrap;
+.sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 
-.sidebar-item::after {
+/* Active menu item */
+.sidebar-item.active {
+  background: rgba(0, 200, 160, 0.65);
+  font-weight: 600;
+}
+
+/* Mouse-follow highlight effect */
+.sidebar-item::before {
   content: "";
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(255, 255, 255, 0.12), transparent 65%);
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, rgba(255,255,255,0.25), rgba(255,255,255,0));
+  top: var(--y);
+  left: var(--x);
+  transform: translate(-50%, -50%);
   opacity: 0;
+  transition: opacity 0.25s ease;
   pointer-events: none;
-  transition: opacity 0.2s ease;
 }
 
-.sidebar-item:hover {
-  background: rgba(148, 163, 184, 0.26);
-}
-
-.sidebar-item:hover::after {
+.sidebar-item:hover::before {
   opacity: 1;
 }
 
-.sidebar-item.active {
-  background: rgba(15, 118, 110, 0.95);
-  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35),
-              0 14px 30px rgba(0, 0, 0, 0.55);
-}
+/* ========== MAIN CONTENT AREA ========== */
 
-.sidebar-item.active i,
-.sidebar-item.active span {
-  color: #ecfeff;
-}
-
-/* Main CBI area */
-
-.main-area {
+.main {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(135deg, rgba(248, 250, 252, 0.96), rgba(226, 232, 240, 0.96));
+  overflow-y: auto;
+  padding: 28px 42px;
 }
-
-/* Existing header styling for CBI */
-
-.header {
-  background: var(--accent);
-  padding: 16px 24px;
-  text-align: left;
-  color: white;
-  box-shadow: 0 8px 20px rgba(15, 118, 110, 0.45);
-}
-
-.header h1 {
-  margin: 0;
-  font-size: 22px;
-  letter-spacing: 0.04em;
-}
-
-/* CBI screen container (inside #app) */
-
-#app {
-  padding: 24px;
-}
-
-/* Keep your previous screen styles */
 
 .screen {
-  padding: 20px;
-  background: var(--surface);
+  background: white;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 38px;
   border-radius: 18px;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  animation: fadeIn 0.2s ease-out;
 }
 
-/* Headings inside screens */
-
-.screen h2 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  color: var(--text-main);
+/* Fade-in effect */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* Buttons */
+/* ========== HEADERS ========== */
 
-button {
+h2 {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #064f58;
+}
+
+h3.section-title {
+  margin-top: 22px;
+  margin-bottom: 8px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #064f58;
+}
+
+p {
+  margin-bottom: 14px;
+  color: #244b55;
+}
+
+/* ========== FORM ELEMENTS ========== */
+
+label {
+  font-weight: 600;
+  margin-top: 14px;
+  display: block;
+  color: #084f58;
+}
+
+input, select, textarea {
   width: 100%;
-  padding: 14px;
-  margin-top: 12px;
-  border: none;
+  padding: 12px 14px;
+  margin-top: 6px;
+  border: 1px solid #cfdce3;
   border-radius: 10px;
-  font-size: 16px;
-  cursor: pointer;
+  font-size: 15px;
+  background: #f8fafb;
+  transition: border 0.15s;
 }
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: #0ca8a8;
+  background: #ffffff;
+}
+
+/* ========== BUTTONS ========== */
 
 .btn-primary {
-  background: var(--accent-soft);
+  width: 100%;
+  padding: 14px;
+  background: #0a8a8a;
+  border: none;
   color: white;
+  font-size: 17px;
+  border-radius: 12px;
+  margin-top: 22px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.btn-primary:hover {
+  background: #087474;
+}
+
+.btn-primary:active {
+  transform: scale(0.97);
 }
 
 .btn-secondary {
-  background: #9ca3af;
-  color: white;
-}
-
-button[disabled] {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-/* Labels and inputs */
-
-label {
-  display: block;
-  margin-top: 14px;
-  font-weight: 600;
-  font-size: 14px;
-  color: #111827;
-}
-
-input {
   width: 100%;
-  padding: 10px;
-  margin-top: 4px;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
-  font-size: 15px;
-  box-sizing: border-box;
+  padding: 14px;
+  background: #d2d9dc;
+  border: none;
+  color: #113a45;
+  font-size: 16px;
+  border-radius: 12px;
+  margin-top: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
 }
 
-/* Step list and section title (you already used these) */
+.btn-secondary:hover {
+  background: #c4cbce;
+}
+
+/* Step list formatting */
 
 .step-list {
-  margin-top: 12px;
-  padding-left: 20px;
+  padding-left: 22px;
+  margin-bottom: 24px;
 }
 
 .step-list li {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  line-height: 1.4;
 }
 
-.section-title {
-  margin-top: 20px;
-  margin-bottom: 8px;
+/* ========== PURPOSE CHECKLIST (NEW) ========== */
+
+.purpose-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  margin-bottom: 12px;
 }
 
-/* Responsive: collapse sidebar text on narrow screens */
+.purpose-item {
+  font-size: 15px;
+  color: #083b45;
+  display: flex;
+  align-items: center;
+}
+
+.purpose-item input {
+  margin-right: 10px;
+  transform: scale(1.2);
+}
+
+/* ========== RESPONSIVE ========== */
 
 @media (max-width: 900px) {
-  .glass-sidebar {
-    width: 70px;
-    align-items: center;
+  .sidebar {
+    width: 210px;
+  }
+}
+
+@media (max-width: 700px) {
+  body {
+    flex-direction: column;
   }
 
-  .sidebar-logo-text {
-    display: none;
-  }
-
-  .sidebar-item span {
-    display: none;
+  .sidebar {
+    flex-direction: row;
+    width: 100%;
+    height: auto;
+    overflow-x: auto;
+    padding: 14px;
   }
 
   .sidebar-item {
-    justify-content: center;
+    flex: none;
+    margin-right: 12px;
   }
 
-  .main-area {
-    padding-left: 0;
-  }
-}
-
-@media (max-width: 640px) {
-  #app {
-    padding: 16px;
-  }
-
-  .screen {
-    padding: 16px;
+  .main {
+    padding: 20px;
   }
 }
