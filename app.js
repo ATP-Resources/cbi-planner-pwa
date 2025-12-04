@@ -24,6 +24,17 @@ let currentTrip = {
     departTime: "",
     arriveTime: "",
     totalTime: ""
+  },
+  purpose: {
+    lifeSkills: false,
+    communityAccess: false,
+    moneySkills: false,
+    communication: false,
+    socialSkills: false,
+    employmentPrep: false,
+    recreationLeisure: false,
+    safetySkills: false,
+    otherText: ""
   }
 };
 
@@ -39,6 +50,14 @@ function updateRouteField(field, value) {
 
 function updateRouteBackField(field, value) {
   currentTrip.routeBack[field] = value;
+}
+
+function togglePurposeField(field, isChecked) {
+  currentTrip.purpose[field] = isChecked;
+}
+
+function updatePurposeOther(value) {
+  currentTrip.purpose.otherText = value;
 }
 
 // Open Google Maps for this trip
@@ -198,10 +217,11 @@ function render() {
     `;
   }
 
-  // STEP 3: ROUTE DETAILS (THERE + BACK)
+  // STEP 3: ROUTE DETAILS (THERE + BACK + PURPOSE)
   else if (currentScreen === "routeDetails") {
     const r = currentTrip.routeThere;
     const rb = currentTrip.routeBack;
+    const p = currentTrip.purpose;
 
     app.innerHTML = `
       <div class="screen">
@@ -336,6 +356,92 @@ function render() {
           placeholder="Example: 27 minutes"
           value="${rb.totalTime}"
           oninput="updateRouteBackField('totalTime', this.value)"
+        />
+
+        <h3 class="section-title" style="margin-top:24px;">Why are we going?</h3>
+        <p>Check all the skills you will practice on this trip.</p>
+
+        <div class="purpose-grid">
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.lifeSkills ? "checked" : ""}
+              onchange="togglePurposeField('lifeSkills', this.checked)"
+            />
+            Life skills (shopping, ordering, daily living)
+          </label>
+
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.communityAccess ? "checked" : ""}
+              onchange="togglePurposeField('communityAccess', this.checked)"
+            />
+            Community access and navigation
+          </label>
+
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.moneySkills ? "checked" : ""}
+              onchange="togglePurposeField('moneySkills', this.checked)"
+            />
+            Money skills (budgeting, paying, change)
+          </label>
+
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.communication ? "checked" : ""}
+              onchange="togglePurposeField('communication', this.checked)"
+            />
+            Communication and self-advocacy
+          </label>
+
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.socialSkills ? "checked" : ""}
+              onchange="togglePurposeField('socialSkills', this.checked)"
+            />
+            Social skills and teamwork
+          </label>
+
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.employmentPrep ? "checked" : ""}
+              onchange="togglePurposeField('employmentPrep', this.checked)"
+            />
+            Employment preparation or work skills
+          </label>
+
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.recreationLeisure ? "checked" : ""}
+              onchange="togglePurposeField('recreationLeisure', this.checked)"
+            />
+            Recreation and leisure in the community
+          </label>
+
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.safetySkills ? "checked" : ""}
+              onchange="togglePurposeField('safetySkills', this.checked)"
+            />
+            Safety skills (street safety, stranger awareness, etc.)
+          </label>
+        </div>
+
+        <label for="purposeOther" style="margin-top:12px;">Other reason</label>
+        <input
+          id="purposeOther"
+          type="text"
+          placeholder="Example: Practice transfers, volunteer work, special event, etc."
+          value="${p.otherText}"
+          oninput="updatePurposeOther(this.value)"
         />
 
         <button class="btn-secondary" onclick="goTo('mapsInstructions')">
