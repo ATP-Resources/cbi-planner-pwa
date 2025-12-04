@@ -25,39 +25,39 @@
       </div>
 
       <nav class="sidebar-menu">
-        <button class="sidebar-item active" data-screen="home" onclick="goTo('home')">
+        <button class="sidebar-item active" data-screen="home">
           <i class="fas fa-house"></i>
           <span>Home</span>
         </button>
 
-        <button class="sidebar-item" data-screen="planDestination" onclick="goTo('planDestination')">
+        <button class="sidebar-item" data-screen="planDestination">
           <i class="fas fa-map-location-dot"></i>
           <span>Plan new trip</span>
         </button>
 
-        <button class="sidebar-item" data-screen="mapsInstructions" onclick="goTo('mapsInstructions')">
+        <button class="sidebar-item" data-screen="mapsInstructions">
           <i class="fas fa-route"></i>
           <span>Google Maps steps</span>
         </button>
 
-        <button class="sidebar-item" data-screen="routeDetails" onclick="goTo('routeDetails')">
+        <button class="sidebar-item" data-screen="routeDetails">
           <i class="fas fa-bus-simple"></i>
           <span>Route details</span>
         </button>
 
-        <button class="sidebar-item" data-screen="past" onclick="goTo('past')">
+        <button class="sidebar-item" data-screen="past">
           <i class="fas fa-clock-rotate-left"></i>
           <span>Past trips</span>
         </button>
 
-        <button class="sidebar-item" data-screen="practice" onclick="goTo('practice')">
+        <button class="sidebar-item" data-screen="practice">
           <i class="fas fa-graduation-cap"></i>
           <span>Practice maps</span>
         </button>
       </nav>
     </aside>
 
-    <!-- Main CBI app area (your existing screens render into #app) -->
+    <!-- Main CBI app area (screens render into #app) -->
     <main class="main-area">
       <header class="header">
         <h1>CBI Planner</h1>
@@ -67,10 +67,7 @@
     </main>
   </div>
 
-  <!-- Your existing app logic stays the same -->
+  <!-- Single combined JS file -->
   <script src="app.js"></script>
-
-  <!-- Small helper script to handle sidebar active state -->
-  <script src="sidebar.js"></script>
 </body>
 </html>
