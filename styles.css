@@ -39,3 +39,26 @@ button {
   background: #a3a3a3;
   color: white;
 }
+
+/* New form styles */
+
+label {
+  display: block;
+  margin-top: 14px;
+  font-weight: bold;
+}
+
+input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 4px;
+  border-radius: 6px;
+  border: 1px solid #cccccc;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
