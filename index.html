@@ -3,20 +3,129 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CBI Planner</title>
+  <title>Apple Style Glassmorphism Sidebar</title>
 
-  <!-- Link to CSS -->
-  <link rel="stylesheet" href="styles.css" />
+  <!-- Main styles -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+  />
 </head>
-
 <body>
-  <div class="header">
-    <h1>CBI Planner</h1>
+  <div class="app-shell">
+    <!-- Glassmorphism Sidebar -->
+    <aside class="sidebar glass-sidebar">
+      <div class="sidebar-inner">
+        <div class="logo">
+          <div class="logo-circle">
+            <i class="fab fa-apple"></i>
+          </div>
+        </div>
+
+        <nav class="menu" aria-label="Main navigation">
+          <ul>
+            <li class="menu-item active">
+              <a href="#">
+                <i class="fas fa-house"></i>
+                <span>Home</span>
+              </a>
+            </li>
+            <li class="menu-item">
+              <a href="#">
+                <i class="fas fa-compass"></i>
+                <span>Explore</span>
+              </a>
+            </li>
+            <li class="menu-item">
+              <a href="#">
+                <i class="fas fa-chart-simple"></i>
+                <span>Analytics</span>
+              </a>
+            </li>
+            <li class="menu-item">
+              <a href="#">
+                <i class="fas fa-message"></i>
+                <span>Messages</span>
+              </a>
+            </li>
+            <li class="menu-item">
+              <a href="#">
+                <i class="fas fa-folder"></i>
+                <span>Projects</span>
+              </a>
+            </li>
+            <li class="menu-item">
+              <a href="#">
+                <i class="fas fa-bookmark"></i>
+                <span>Bookmarks</span>
+              </a>
+            </li>
+          </ul>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="profile">
+            <div class="avatar">
+              <img
+                src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80"
+                alt="Profile"
+              />
+            </div>
+            <div class="user-info">
+              <h3>Alex Morgan</h3>
+              <p>Designer</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="content">
+      <header class="content-header">
+        <div class="title-block">
+          <h1>Welcome back, Alex</h1>
+          <p>Check out your project statistics for today.</p>
+        </div>
+      </header>
+
+      <section class="card-container">
+        <article class="card glass-card">
+          <div class="card-icon">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div class="card-info">
+            <h3>12</h3>
+            <p>Completed tasks</p>
+          </div>
+        </article>
+
+        <article class="card glass-card">
+          <div class="card-icon">
+            <i class="fas fa-clock"></i>
+          </div>
+          <div class="card-info">
+            <h3>5</h3>
+            <p>Pending tasks</p>
+          </div>
+        </article>
+
+        <article class="card glass-card">
+          <div class="card-icon">
+            <i class="fas fa-users"></i>
+          </div>
+          <div class="card-info">
+            <h3>7</h3>
+            <p>Active projects</p>
+          </div>
+        </article>
+      </section>
+    </main>
   </div>
 
-  <div id="app"></div>
-
-  <!-- Link to JavaScript -->
-  <script src="app.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
