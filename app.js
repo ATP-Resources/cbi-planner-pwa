@@ -70,12 +70,12 @@ function render() {
     `;
   }
 
-  // PLAN DESTINATION SCREEN
+  // STEP 1: DESTINATION SCREEN
   else if (currentScreen === "planDestination") {
     app.innerHTML = `
       <div class="screen">
         <h2>Plan a New CBI Trip</h2>
-        <p>Step 1: Destination and basic information.</p>
+        <p><strong>Step 1:</strong> Destination and basic information.</p>
 
         <label for="destName">Destination name</label>
         <input
@@ -113,9 +113,57 @@ function render() {
 
         <button
           class="btn-primary"
+          onclick="goTo('mapsInstructions')"
+        >
+          Go to Step 2: Google Maps Instructions
+        </button>
+
+        <button class="btn-secondary" onclick="goTo('home')">
+          Back to Home
+        </button>
+      </div>
+    `;
+  }
+
+  // STEP 2: GOOGLE MAPS INSTRUCTIONS SCREEN
+  else if (currentScreen === "mapsInstructions") {
+    app.innerHTML = `
+      <div class="screen">
+        <h2>Step 2: Use Google Maps</h2>
+        <p>Follow these steps to find your bus route.</p>
+
+        <ol class="step-list">
+          <li>Check that the <strong>destination name</strong> and <strong>address</strong> in Step 1 are correct.</li>
+          <li>Tap the <strong>Open in Google Maps</strong> button below. A new tab or app will open.</li>
+          <li>Make sure the <strong>starting point</strong> is your school.</li>
+          <li>Change the travel type to <strong>Transit</strong> so you see bus and train routes.</li>
+          <li>Look at the routes and choose the one that:
+            <ul>
+              <li>Arrives on time</li>
+              <li>Has the fewest transfers</li>
+              <li>Feels easiest for you</li>
+            </ul>
+          </li>
+          <li>Write down or remember:
+            <ul>
+              <li>Bus number and direction</li>
+              <li>First stop where you get on</li>
+              <li>Stop where you get off</li>
+              <li>Departure time and arrival time</li>
+            </ul>
+          </li>
+          <li>When you are done looking at Google Maps, come back to this CBI Planner app tab to fill in the next step.</li>
+        </ol>
+
+        <button
+          class="btn-primary"
           onclick="openMapsForCurrentTrip()"
         >
           Open in Google Maps (Transit)
+        </button>
+
+        <button class="btn-secondary" onclick="goTo('planDestination')">
+          Back to Step 1
         </button>
 
         <button class="btn-secondary" onclick="goTo('home')">
