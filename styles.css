@@ -62,3 +62,12 @@ button[disabled] {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.step-list {
+  margin-top: 12px;
+  padding-left: 20px;
+}
+
+.step-list li {
+  margin-bottom: 8px;
+}
+
