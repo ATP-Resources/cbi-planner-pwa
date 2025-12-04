@@ -6,7 +6,16 @@ let currentTrip = {
   destinationName: "",
   destinationAddress: "",
   tripDate: "",
-  meetTime: ""
+  meetTime: "",
+  routeThere: {
+    busNumber: "",
+    direction: "",
+    boardStop: "",
+    exitStop: "",
+    departTime: "",
+    arriveTime: "",
+    totalTime: ""
+  }
 };
 
 // Update fields in the current trip object
@@ -14,9 +23,13 @@ function updateTripField(field, value) {
   currentTrip[field] = value;
 }
 
+// Update fields inside the routeThere object
+function updateRouteField(field, value) {
+  currentTrip.routeThere[field] = value;
+}
+
 // Build a Google Maps transit link from school to the destination
 function openMapsForCurrentTrip() {
-  // Change this to your exact school address if you want
   const origin = "Katella High School, Anaheim, CA";
 
   const destination = `${currentTrip.destinationName} ${currentTrip.destinationAddress}`.trim();
@@ -108,99 +121,3 @@ function render() {
           id="meetTime"
           type="time"
           value="${currentTrip.meetTime}"
-          oninput="updateTripField('meetTime', this.value)"
-        />
-
-        <button
-          class="btn-primary"
-          onclick="goTo('mapsInstructions')"
-        >
-          Go to Step 2: Google Maps Instructions
-        </button>
-
-        <button class="btn-secondary" onclick="goTo('home')">
-          Back to Home
-        </button>
-      </div>
-    `;
-  }
-
-  // STEP 2: GOOGLE MAPS INSTRUCTIONS SCREEN
-  else if (currentScreen === "mapsInstructions") {
-    app.innerHTML = `
-      <div class="screen">
-        <h2>Step 2: Use Google Maps</h2>
-        <p>Follow these steps to find your bus route.</p>
-
-        <ol class="step-list">
-          <li>Check that the <strong>destination name</strong> and <strong>address</strong> in Step 1 are correct.</li>
-          <li>Tap the <strong>Open in Google Maps</strong> button below. A new tab or app will open.</li>
-          <li>Make sure the <strong>starting point</strong> is your school.</li>
-          <li>Change the travel type to <strong>Transit</strong> so you see bus and train routes.</li>
-          <li>Look at the routes and choose the one that:
-            <ul>
-              <li>Arrives on time</li>
-              <li>Has the fewest transfers</li>
-              <li>Feels easiest for you</li>
-            </ul>
-          </li>
-          <li>Write down or remember:
-            <ul>
-              <li>Bus number and direction</li>
-              <li>First stop where you get on</li>
-              <li>Stop where you get off</li>
-              <li>Departure time and arrival time</li>
-            </ul>
-          </li>
-          <li>When you are done looking at Google Maps, come back to this CBI Planner app tab to fill in the next step.</li>
-        </ol>
-
-        <button
-          class="btn-primary"
-          onclick="openMapsForCurrentTrip()"
-        >
-          Open in Google Maps (Transit)
-        </button>
-
-        <button class="btn-secondary" onclick="goTo('planDestination')">
-          Back to Step 1
-        </button>
-
-        <button class="btn-secondary" onclick="goTo('home')">
-          Back to Home
-        </button>
-      </div>
-    `;
-  }
-
-  // PAST TRIPS SCREEN (placeholder for now)
-  else if (currentScreen === "past") {
-    app.innerHTML = `
-      <div class="screen">
-        <h2>Past Trips</h2>
-        <p>Saved trips will show here soon.</p>
-
-        <button class="btn-secondary" onclick="goTo('home')">
-          Back to Home
-        </button>
-      </div>
-    `;
-  }
-
-  // PRACTICE MAPS SCREEN (placeholder for now)
-  else if (currentScreen === "practice") {
-    app.innerHTML = `
-      <div class="screen">
-        <h2>Practice Google Maps</h2>
-        <p>Practice scenarios will appear here.</p>
-
-        <button class="btn-secondary" onclick="goTo('home')">
-          Back to Home
-        </button>
-      </div>
-    `;
-  }
-}
-
-// First render
-render();
