@@ -5,6 +5,11 @@ let currentScreen = "home";
 function render() {
   const app = document.getElementById("app");
 
+  if (!app) {
+    console.error("App container not found");
+    return;
+  }
+
   if (currentScreen === "home") {
     app.innerHTML = `
       <div class="screen">
@@ -24,9 +29,7 @@ function render() {
         </button>
       </div>
     `;
-  }
-
-  if (currentScreen === "plan") {
+  } else if (currentScreen === "plan") {
     app.innerHTML = `
       <div class="screen">
         <h2>Plan a Trip</h2>
@@ -37,9 +40,7 @@ function render() {
         </button>
       </div>
     `;
-  }
-
-  if (currentScreen === "past") {
+  } else if (currentScreen === "past") {
     app.innerHTML = `
       <div class="screen">
         <h2>Past Trips</h2>
@@ -50,9 +51,7 @@ function render() {
         </button>
       </div>
     `;
-  }
-
-  if (currentScreen === "practice") {
+  } else if (currentScreen === "practice") {
     app.innerHTML = `
       <div class="screen">
         <h2>Practice Google Maps</h2>
@@ -73,5 +72,3 @@ function goTo(screen) {
 
 // INITIAL LOAD
 render();
-
-
