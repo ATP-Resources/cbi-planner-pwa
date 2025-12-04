@@ -1,7 +1,7 @@
-// Which screen is showing
+// ===== CBI PLANNER STATE =====
+
 let currentScreen = "home";
 
-// Draft of the trip the student is planning
 let currentTrip = {
   destinationName: "",
   destinationAddress: "",
@@ -18,20 +18,19 @@ let currentTrip = {
   }
 };
 
-// Update fields in the main trip object
+// ===== HELPERS TO UPDATE STATE =====
+
 function updateTripField(field, value) {
   currentTrip[field] = value;
 }
 
-// Update fields inside the routeThere object
 function updateRouteField(field, value) {
   currentTrip.routeThere[field] = value;
 }
 
-// Build a Google Maps transit link from school to the destination
+// Open Google Maps for this trip
 function openMapsForCurrentTrip() {
   const origin = "Katella High School, Anaheim, CA";
-
   const destination = `${currentTrip.destinationName} ${currentTrip.destinationAddress}`.trim();
 
   if (!destination) {
@@ -46,13 +45,15 @@ function openMapsForCurrentTrip() {
   window.open(url, "_blank");
 }
 
-// Change screens
+// Screen navigation
 function goTo(screen) {
   currentScreen = screen;
   render();
+  highlightSidebar(screen);
 }
 
-// Main render function
+// ===== RENDER FUNCTION =====
+
 function render() {
   const app = document.getElementById("app");
 
@@ -83,7 +84,7 @@ function render() {
     `;
   }
 
-  // STEP 1: DESTINATION SCREEN
+  // STEP 1: DESTINATION
   else if (currentScreen === "planDestination") {
     app.innerHTML = `
       <div class="screen">
@@ -124,10 +125,7 @@ function render() {
           oninput="updateTripField('meetTime', this.value)"
         />
 
-        <button
-          class="btn-primary"
-          onclick="goTo('mapsInstructions')"
-        >
+        <button class="btn-primary" onclick="goTo('mapsInstructions')">
           Go to Step 2: Google Maps Instructions
         </button>
 
@@ -138,7 +136,7 @@ function render() {
     `;
   }
 
-  // STEP 2: GOOGLE MAPS INSTRUCTIONS SCREEN
+  // STEP 2: GOOGLE MAPS INSTRUCTIONS
   else if (currentScreen === "mapsInstructions") {
     app.innerHTML = `
       <div class="screen">
@@ -168,10 +166,7 @@ function render() {
           <li>When you are done looking at Google Maps, come back to this CBI Planner app tab to fill in Step 3.</li>
         </ol>
 
-        <button
-          class="btn-primary"
-          onclick="openMapsForCurrentTrip()"
-        >
+        <button class="btn-primary" onclick="openMapsForCurrentTrip()">
           Open in Google Maps (Transit)
         </button>
 
@@ -190,7 +185,7 @@ function render() {
     `;
   }
 
-  // STEP 3: ROUTE DETAILS SCREEN
+  // STEP 3: ROUTE DETAILS
   else if (currentScreen === "routeDetails") {
     const r = currentTrip.routeThere;
 
@@ -275,7 +270,7 @@ function render() {
     `;
   }
 
-  // PAST TRIPS SCREEN (placeholder for now)
+  // PAST TRIPS PLACEHOLDER
   else if (currentScreen === "past") {
     app.innerHTML = `
       <div class="screen">
@@ -289,7 +284,7 @@ function render() {
     `;
   }
 
-  // PRACTICE MAPS SCREEN (placeholder for now)
+  // PRACTICE MAPS PLACEHOLDER
   else if (currentScreen === "practice") {
     app.innerHTML = `
       <div class="screen">
@@ -304,5 +299,40 @@ function render() {
   }
 }
 
-// First render
-render();
+// ===== SIDEBAR BEHAVIOR =====
+
+function highlightSidebar(screen) {
+  const items = document.querySelectorAll(".sidebar-item");
+  items.forEach(btn => {
+    const target = btn.getAttribute("data-screen");
+    if (target === screen) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // First render
+  render();
+
+  // Wire sidebar buttons
+  const sidebarItems = document.querySelectorAll(".sidebar-item");
+  sidebarItems.forEach(item => {
+    const screen = item.getAttribute("data-screen");
+
+    item.addEventListener("click", () => {
+      goTo(screen);
+    });
+
+    // Light highlight following mouse
+    item.addEventListener("mousemove", e => {
+      const rect = item.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      item.style.setProperty("--x", `${x}px`);
+      item.style.setProperty("--y", `${y}px`);
+    });
+  });
+});
