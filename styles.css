@@ -12,7 +12,12 @@
 
 body {
   font-family: 'Inter', sans-serif;
-  background: linear-gradient(135deg, #d9e6ef 0%, #eef4f8 100%);
+
+  /* Animated gradient background */
+  background: linear-gradient(-45deg, #0f766e, #0ea5e9, #1d4ed8, #0f172a);
+  background-size: 400% 400%;
+  animation: cbiGradient 18s ease infinite;
+
   display: flex;
   height: 100vh;
   overflow: hidden;
@@ -354,4 +359,5 @@ body {
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
+
 
