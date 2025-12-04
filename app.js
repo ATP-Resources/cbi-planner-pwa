@@ -1,8 +1,12 @@
-// ===== WEATHER API KEY (OpenWeatherMap) =====
-// This is your real key. You can rotate it later in your OpenWeather account if needed.
+// =========================================================
+//  WEATHER API KEY
+// =========================================================
+
 const WEATHER_API_KEY = "f9715f7f6f28be705da13c53ab5fcc2c5";
 
-// ===== CBI PLANNER STATE =====
+// =========================================================
+//  CBI PLANNER STATE
+// =========================================================
 
 let currentScreen = "home";
 
@@ -42,7 +46,9 @@ let currentTrip = {
   }
 };
 
-// ===== HELPERS TO UPDATE STATE =====
+// =========================================================
+//  HELPERS TO UPDATE STATE
+// =========================================================
 
 function updateTripField(field, value) {
   currentTrip[field] = value;
@@ -64,7 +70,10 @@ function updatePurposeOther(value) {
   currentTrip.purpose.otherText = value;
 }
 
-// Open Google Maps for this trip
+// =========================================================
+//  GOOGLE MAPS OPEN
+// =========================================================
+
 function openMapsForCurrentTrip() {
   const origin = "Katella High School, Anaheim, CA";
   const destination = `${currentTrip.destinationName} ${currentTrip.destinationAddress}`.trim();
@@ -81,7 +90,10 @@ function openMapsForCurrentTrip() {
   window.open(url, "_blank");
 }
 
-// Build purpose summary HTML
+// =========================================================
+//  PURPOSE SUMMARY (FOR SUMMARY SCREEN)
+// =========================================================
+
 function renderPurposeSummary() {
   const p = currentTrip.purpose;
   const items = [];
@@ -121,8 +133,21 @@ function renderPurposeSummary() {
   return items.map(text => `<li>${text}</li>`).join("");
 }
 
-// ===== WEATHER LOOKUP (students look it up themselves) =====
+// =========================================================
+//  NAVIGATION
+// =========================================================
 
+function goTo(screen) {
+  currentScreen = screen;
+  render();
+  highlightSidebar(screen);
+}
+
+// =========================================================
+//  WEATHER LOOKUP
+// =========================================================
+
+// Students click "Look up weather"
 async function lookupWeather() {
   const cityInput = document.getElementById("weatherCity");
   const resultsDiv = document.getElementById("weatherResults");
@@ -139,7 +164,7 @@ async function lookupWeather() {
   resultsDiv.innerHTML = "Loading weather...";
 
   try {
-    // Free 5 day / 3 hour forecast in Fahrenheit
+    // 5 day forecast, in Fahrenheit
     const url = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(
       city
     )}&units=imperial&appid=${WEATHER_API_KEY}`;
@@ -156,13 +181,13 @@ async function lookupWeather() {
       return;
     }
 
-    // Use the first forecast block as a simple preview for students
+    // Take the first forecast block as a simple estimate
     const first = data.list[0];
 
     const temp = Math.round(first.main.temp);
     const feels = Math.round(first.main.feels_like);
     const description = first.weather[0].description;
-    const pop = Math.round((first.pop || 0) * 100); // probability of precipitation %
+    const pop = Math.round((first.pop || 0) * 100); // chance of precipitation
 
     let suggestion = "Bring water and be ready for walking.";
     if (temp <= 55) {
@@ -201,14 +226,9 @@ async function lookupWeather() {
   }
 }
 
-// Screen navigation
-function goTo(screen) {
-  currentScreen = screen;
-  render();
-  highlightSidebar(screen);
-}
-
-// ===== RENDER FUNCTION =====
+// =========================================================
+//  RENDER FUNCTION
+// =========================================================
 
 function render() {
   const app = document.getElementById("app");
@@ -218,7 +238,9 @@ function render() {
     return;
   }
 
+  // -------------------------------------------------------
   // HOME SCREEN
+  // -------------------------------------------------------
   if (currentScreen === "home") {
     app.innerHTML = `
       <div class="screen">
@@ -240,7 +262,9 @@ function render() {
     `;
   }
 
+  // -------------------------------------------------------
   // STEP 1: DESTINATION
+  // -------------------------------------------------------
   else if (currentScreen === "planDestination") {
     app.innerHTML = `
       <div class="screen">
@@ -292,7 +316,9 @@ function render() {
     `;
   }
 
+  // -------------------------------------------------------
   // STEP 2: GOOGLE MAPS INSTRUCTIONS
+  // -------------------------------------------------------
   else if (currentScreen === "mapsInstructions") {
     app.innerHTML = `
       <div class="screen">
@@ -341,7 +367,9 @@ function render() {
     `;
   }
 
+  // -------------------------------------------------------
   // STEP 3: ROUTE DETAILS (THERE + BACK + PURPOSE)
+  // -------------------------------------------------------
   else if (currentScreen === "routeDetails") {
     const r = currentTrip.routeThere;
     const rb = currentTrip.routeBack;
@@ -583,7 +611,9 @@ function render() {
     `;
   }
 
+  // -------------------------------------------------------
   // TRIP SUMMARY SCREEN
+  // -------------------------------------------------------
   else if (currentScreen === "summary") {
     const r = currentTrip.routeThere;
     const rb = currentTrip.routeBack;
@@ -692,7 +722,7 @@ function render() {
         </button>
 
         <button class="btn-secondary" onclick="goTo('routeDetails')">
-          Edit Step 3 (Routes and Purpose)
+          Edit Step 3 (Routes & Purpose)
         </button>
 
         <button class="btn-secondary" onclick="goTo('home')">
@@ -702,12 +732,14 @@ function render() {
     `;
   }
 
+  // -------------------------------------------------------
   // WEATHER LOOKUP SCREEN
+  // -------------------------------------------------------
   else if (currentScreen === "weather") {
     app.innerHTML = `
       <div class="screen">
         <h2>Check Weather for Your Trip</h2>
-        <p>Use this screen to look up the weather for your CBI destination.</p>
+        <p>Use this to look up the weather for your CBI destination.</p>
 
         <label for="weatherCity">City or destination</label>
         <input
@@ -730,12 +762,14 @@ function render() {
     `;
   }
 
+  // -------------------------------------------------------
   // PAST TRIPS PLACEHOLDER
+  // -------------------------------------------------------
   else if (currentScreen === "past") {
     app.innerHTML = `
       <div class="screen">
         <h2>Past Trips</h2>
-        <p>Saved trips will show here in a future update.</p>
+        <p>Saved trips will show here soon.</p>
 
         <button class="btn-secondary" onclick="goTo('home')">
           Back to Home
@@ -744,12 +778,14 @@ function render() {
     `;
   }
 
+  // -------------------------------------------------------
   // PRACTICE MAPS PLACEHOLDER
+  // -------------------------------------------------------
   else if (currentScreen === "practice") {
     app.innerHTML = `
       <div class="screen">
         <h2>Practice Google Maps</h2>
-        <p>Practice scenarios will appear here in a future update.</p>
+        <p>Practice scenarios will appear here.</p>
 
         <button class="btn-secondary" onclick="goTo('home')">
           Back to Home
@@ -759,7 +795,9 @@ function render() {
   }
 }
 
-// ===== SIDEBAR BEHAVIOR =====
+// =========================================================
+–  SIDEBAR BEHAVIOR
+// =========================================================
 
 function highlightSidebar(screen) {
   const items = document.querySelectorAll(".sidebar-item");
@@ -776,6 +814,7 @@ function highlightSidebar(screen) {
 document.addEventListener("DOMContentLoaded", () => {
   // First render
   render();
+  highlightSidebar(currentScreen);
 
   // Wire sidebar buttons
   const sidebarItems = document.querySelectorAll(".sidebar-item");
@@ -786,7 +825,7 @@ document.addEventListener("DOMContentLoaded", () => {
       goTo(screen);
     });
 
-    // Light highlight following mouse
+    // Mouse-follow glow
     item.addEventListener("mousemove", e => {
       const rect = item.getBoundingClientRect();
       const x = e.clientX - rect.left;
