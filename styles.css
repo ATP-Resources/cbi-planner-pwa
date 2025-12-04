@@ -339,3 +339,19 @@ select:focus {
     padding: 20px;
   }
 }
+/* =========================================================
+   ANIMATED BACKGROUND GRADIENT
+========================================================= */
+
+body {
+  background: linear-gradient(-45deg, #0f766e, #0ea5e9, #1d4ed8, #0f172a);
+  background-size: 400% 400%;
+  animation: cbiGradient 18s ease infinite;
+}
+
+@keyframes cbiGradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
