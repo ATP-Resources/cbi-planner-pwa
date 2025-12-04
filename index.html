@@ -3,12 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Apple Style Glassmorphism Sidebar</title>
+  <title>CBI Planner</title>
 
-  <!-- Main styles -->
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="styles.css" />
 
-  <!-- Icons -->
+  <!-- Font Awesome for icons -->
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -16,116 +15,62 @@
 </head>
 <body>
   <div class="app-shell">
-    <!-- Glassmorphism Sidebar -->
-    <aside class="sidebar glass-sidebar">
-      <div class="sidebar-inner">
-        <div class="logo">
-          <div class="logo-circle">
-            <i class="fab fa-apple"></i>
-          </div>
-        </div>
-
-        <nav class="menu" aria-label="Main navigation">
-          <ul>
-            <li class="menu-item active">
-              <a href="#">
-                <i class="fas fa-house"></i>
-                <span>Home</span>
-              </a>
-            </li>
-            <li class="menu-item">
-              <a href="#">
-                <i class="fas fa-compass"></i>
-                <span>Explore</span>
-              </a>
-            </li>
-            <li class="menu-item">
-              <a href="#">
-                <i class="fas fa-chart-simple"></i>
-                <span>Analytics</span>
-              </a>
-            </li>
-            <li class="menu-item">
-              <a href="#">
-                <i class="fas fa-message"></i>
-                <span>Messages</span>
-              </a>
-            </li>
-            <li class="menu-item">
-              <a href="#">
-                <i class="fas fa-folder"></i>
-                <span>Projects</span>
-              </a>
-            </li>
-            <li class="menu-item">
-              <a href="#">
-                <i class="fas fa-bookmark"></i>
-                <span>Bookmarks</span>
-              </a>
-            </li>
-          </ul>
-        </nav>
-
-        <div class="sidebar-footer">
-          <div class="profile">
-            <div class="avatar">
-              <img
-                src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80"
-                alt="Profile"
-              />
-            </div>
-            <div class="user-info">
-              <h3>Alex Morgan</h3>
-              <p>Designer</p>
-            </div>
-          </div>
-        </div>
+    <!-- Apple style glass sidebar -->
+    <aside class="glass-sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-icon">
+          <i class="fas fa-bus"></i>
+        </span>
+        <span class="sidebar-logo-text">CBI Planner</span>
       </div>
+
+      <nav class="sidebar-menu">
+        <button class="sidebar-item active" data-screen="home" onclick="goTo('home')">
+          <i class="fas fa-house"></i>
+          <span>Home</span>
+        </button>
+
+        <button class="sidebar-item" data-screen="planDestination" onclick="goTo('planDestination')">
+          <i class="fas fa-map-location-dot"></i>
+          <span>Plan new trip</span>
+        </button>
+
+        <button class="sidebar-item" data-screen="mapsInstructions" onclick="goTo('mapsInstructions')">
+          <i class="fas fa-route"></i>
+          <span>Google Maps steps</span>
+        </button>
+
+        <button class="sidebar-item" data-screen="routeDetails" onclick="goTo('routeDetails')">
+          <i class="fas fa-bus-simple"></i>
+          <span>Route details</span>
+        </button>
+
+        <button class="sidebar-item" data-screen="past" onclick="goTo('past')">
+          <i class="fas fa-clock-rotate-left"></i>
+          <span>Past trips</span>
+        </button>
+
+        <button class="sidebar-item" data-screen="practice" onclick="goTo('practice')">
+          <i class="fas fa-graduation-cap"></i>
+          <span>Practice maps</span>
+        </button>
+      </nav>
     </aside>
 
-    <!-- Main content -->
-    <main class="content">
-      <header class="content-header">
-        <div class="title-block">
-          <h1>Welcome back, Alex</h1>
-          <p>Check out your project statistics for today.</p>
-        </div>
+    <!-- Main CBI app area (your existing screens render into #app) -->
+    <main class="main-area">
+      <header class="header">
+        <h1>CBI Planner</h1>
       </header>
 
-      <section class="card-container">
-        <article class="card glass-card">
-          <div class="card-icon">
-            <i class="fas fa-check-circle"></i>
-          </div>
-          <div class="card-info">
-            <h3>12</h3>
-            <p>Completed tasks</p>
-          </div>
-        </article>
-
-        <article class="card glass-card">
-          <div class="card-icon">
-            <i class="fas fa-clock"></i>
-          </div>
-          <div class="card-info">
-            <h3>5</h3>
-            <p>Pending tasks</p>
-          </div>
-        </article>
-
-        <article class="card glass-card">
-          <div class="card-icon">
-            <i class="fas fa-users"></i>
-          </div>
-          <div class="card-info">
-            <h3>7</h3>
-            <p>Active projects</p>
-          </div>
-        </article>
-      </section>
+      <div id="app"></div>
     </main>
   </div>
 
-  <script src="script.js"></script>
+  <!-- Your existing app logic stays the same -->
+  <script src="app.js"></script>
+
+  <!-- Small helper script to handle sidebar active state -->
+  <script src="sidebar.js"></script>
 </body>
 </html>
