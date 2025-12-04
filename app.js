@@ -77,6 +77,46 @@ function openMapsForCurrentTrip() {
   window.open(url, "_blank");
 }
 
+// Build purpose summary HTML
+function renderPurposeSummary() {
+  const p = currentTrip.purpose;
+  const items = [];
+
+  if (p.lifeSkills) {
+    items.push("Life skills (shopping, ordering, daily living)");
+  }
+  if (p.communityAccess) {
+    items.push("Community access and navigation");
+  }
+  if (p.moneySkills) {
+    items.push("Money skills (budgeting, paying, change)");
+  }
+  if (p.communication) {
+    items.push("Communication and self-advocacy");
+  }
+  if (p.socialSkills) {
+    items.push("Social skills and teamwork");
+  }
+  if (p.employmentPrep) {
+    items.push("Employment preparation or work skills");
+  }
+  if (p.recreationLeisure) {
+    items.push("Recreation and leisure in the community");
+  }
+  if (p.safetySkills) {
+    items.push("Safety skills (street safety, stranger awareness, etc.)");
+  }
+  if (p.otherText.trim() !== "") {
+    items.push("Other: " + p.otherText.trim());
+  }
+
+  if (!items.length) {
+    return "<li>No purposes selected yet.</li>";
+  }
+
+  return items.map(text => `<li>${text}</li>`).join("");
+}
+
 // Screen navigation
 function goTo(screen) {
   currentScreen = screen;
@@ -444,8 +484,131 @@ function render() {
           oninput="updatePurposeOther(this.value)"
         />
 
+        <button class="btn-primary" onclick="goTo('summary')">
+          View Trip Summary
+        </button>
+
         <button class="btn-secondary" onclick="goTo('mapsInstructions')">
           Back to Step 2
+        </button>
+
+        <button class="btn-secondary" onclick="goTo('home')">
+          Back to Home
+        </button>
+      </div>
+    `;
+  }
+
+  // TRIP SUMMARY SCREEN
+  else if (currentScreen === "summary") {
+    const r = currentTrip.routeThere;
+    const rb = currentTrip.routeBack;
+    const pHtml = renderPurposeSummary();
+
+    app.innerHTML = `
+      <div class="screen">
+        <h2>Trip Summary</h2>
+        <p>Review your plan. If something looks wrong, go back and edit.</p>
+
+        <div class="summary-grid">
+          <div class="summary-card">
+            <h4>Trip basics</h4>
+            <div class="summary-row">
+              <span class="summary-label">Destination:</span>
+              <span class="summary-value">${currentTrip.destinationName || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Address:</span>
+              <span class="summary-value">${currentTrip.destinationAddress || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Date:</span>
+              <span class="summary-value">${currentTrip.tripDate || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Meet time:</span>
+              <span class="summary-value">${currentTrip.meetTime || "-"}</span>
+            </div>
+          </div>
+
+          <div class="summary-card">
+            <h4>Route there</h4>
+            <div class="summary-row">
+              <span class="summary-label">Bus #:</span>
+              <span class="summary-value">${r.busNumber || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Direction:</span>
+              <span class="summary-value">${r.direction || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Get on at:</span>
+              <span class="summary-value">${r.boardStop || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Get off at:</span>
+              <span class="summary-value">${r.exitStop || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Depart:</span>
+              <span class="summary-value">${r.departTime || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Arrive:</span>
+              <span class="summary-value">${r.arriveTime || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Total time:</span>
+              <span class="summary-value">${r.totalTime || "-"}</span>
+            </div>
+          </div>
+
+          <div class="summary-card">
+            <h4>Route back</h4>
+            <div class="summary-row">
+              <span class="summary-label">Bus #:</span>
+              <span class="summary-value">${rb.busNumber || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Direction:</span>
+              <span class="summary-value">${rb.direction || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Get on at:</span>
+              <span class="summary-value">${rb.boardStop || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Get off at:</span>
+              <span class="summary-value">${rb.exitStop || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Depart:</span>
+              <span class="summary-value">${rb.departTime || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Arrive:</span>
+              <span class="summary-value">${rb.arriveTime || "-"}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Total time:</span>
+              <span class="summary-value">${rb.totalTime || "-"}</span>
+            </div>
+          </div>
+
+          <div class="summary-card">
+            <h4>Why are we going?</h4>
+            <ul class="summary-list">
+              ${pHtml}
+            </ul>
+          </div>
+        </div>
+
+        <button class="btn-primary" onclick="goTo('planDestination')">
+          Edit Step 1 (Destination)
+        </button>
+
+        <button class="btn-secondary" onclick="goTo('routeDetails')">
+          Edit Step 3 (Routes & Purpose)
         </button>
 
         <button class="btn-secondary" onclick="goTo('home')">
