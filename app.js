@@ -15,6 +15,15 @@ let currentTrip = {
     departTime: "",
     arriveTime: "",
     totalTime: ""
+  },
+  routeBack: {
+    busNumber: "",
+    direction: "",
+    boardStop: "",
+    exitStop: "",
+    departTime: "",
+    arriveTime: "",
+    totalTime: ""
   }
 };
 
@@ -26,6 +35,10 @@ function updateTripField(field, value) {
 
 function updateRouteField(field, value) {
   currentTrip.routeThere[field] = value;
+}
+
+function updateRouteBackField(field, value) {
+  currentTrip.routeBack[field] = value;
 }
 
 // Open Google Maps for this trip
@@ -185,9 +198,10 @@ function render() {
     `;
   }
 
-  // STEP 3: ROUTE DETAILS
+  // STEP 3: ROUTE DETAILS (THERE + BACK)
   else if (currentScreen === "routeDetails") {
     const r = currentTrip.routeThere;
+    const rb = currentTrip.routeBack;
 
     app.innerHTML = `
       <div class="screen">
@@ -257,6 +271,71 @@ function render() {
           placeholder="Example: 27 minutes"
           value="${r.totalTime}"
           oninput="updateRouteField('totalTime', this.value)"
+        />
+
+        <h3 class="section-title" style="margin-top:24px;">Route back</h3>
+
+        <label for="busNumberBack">Bus number</label>
+        <input
+          id="busNumberBack"
+          type="text"
+          placeholder="Example: Route 47"
+          value="${rb.busNumber}"
+          oninput="updateRouteBackField('busNumber', this.value)"
+        />
+
+        <label for="directionBack">Direction</label>
+        <input
+          id="directionBack"
+          type="text"
+          placeholder="Example: To Katella High School"
+          value="${rb.direction}"
+          oninput="updateRouteBackField('direction', this.value)"
+        />
+
+        <label for="boardStopBack">Stop where you get on</label>
+        <input
+          id="boardStopBack"
+          type="text"
+          placeholder="Example: Lincoln and State College"
+          value="${rb.boardStop}"
+          oninput="updateRouteBackField('boardStop', this.value)"
+        />
+
+        <label for="exitStopBack">Stop where you get off</label>
+        <input
+          id="exitStopBack"
+          type="text"
+          placeholder="Example: Katella and State College"
+          value="${rb.exitStop}"
+          oninput="updateRouteBackField('exitStop', this.value)"
+        />
+
+        <label for="departTimeBack">Departure time</label>
+        <input
+          id="departTimeBack"
+          type="text"
+          placeholder="Example: 1:15 PM"
+          value="${rb.departTime}"
+          oninput="updateRouteBackField('departTime', this.value)"
+        />
+
+        <label for="arriveTimeBack">Arrival time</label>
+        <input
+          id="arriveTimeBack"
+          type="text"
+          placeholder="Example: 1:42 PM"
+          value="${rb.arriveTime}"
+          oninput="updateRouteBackField('arriveTime', this.value)"
+        />
+
+        <label for="totalTimeBack">Total travel time</label>
+        <input
+          id="totalTimeBack"
+          type="text"
+          placeholder="Example: 27 minutes"
+          value="${rb.totalTime}"
+          oninput="updateRouteBackField('totalTime', this.value)"
         />
 
         <button class="btn-secondary" onclick="goTo('mapsInstructions')">
