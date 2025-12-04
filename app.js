@@ -1,3 +1,7 @@
+// ===== WEATHER API KEY (OpenWeatherMap) =====
+// This is your real key. You can rotate it later in your OpenWeather account if needed.
+const WEATHER_API_KEY = "f9715f7f6f28be705da13c53ab5fcc2c5";
+
 // ===== CBI PLANNER STATE =====
 
 let currentScreen = "home";
@@ -115,6 +119,86 @@ function renderPurposeSummary() {
   }
 
   return items.map(text => `<li>${text}</li>`).join("");
+}
+
+// ===== WEATHER LOOKUP (students look it up themselves) =====
+
+async function lookupWeather() {
+  const cityInput = document.getElementById("weatherCity");
+  const resultsDiv = document.getElementById("weatherResults");
+
+  if (!cityInput || !resultsDiv) return;
+
+  const city = cityInput.value.trim();
+
+  if (!city) {
+    alert("Type a city or destination first.");
+    return;
+  }
+
+  resultsDiv.innerHTML = "Loading weather...";
+
+  try {
+    // Free 5 day / 3 hour forecast in Fahrenheit
+    const url = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(
+      city
+    )}&units=imperial&appid=${WEATHER_API_KEY}`;
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error("Weather lookup failed");
+    }
+
+    const data = await response.json();
+
+    if (!data.list || !data.list.length) {
+      resultsDiv.innerHTML = "No forecast found for that location.";
+      return;
+    }
+
+    // Use the first forecast block as a simple preview for students
+    const first = data.list[0];
+
+    const temp = Math.round(first.main.temp);
+    const feels = Math.round(first.main.feels_like);
+    const description = first.weather[0].description;
+    const pop = Math.round((first.pop || 0) * 100); // probability of precipitation %
+
+    let suggestion = "Bring water and be ready for walking.";
+    if (temp <= 55) {
+      suggestion = "It looks cold. Bring a jacket or sweater.";
+    } else if (temp >= 85) {
+      suggestion = "It looks hot. Bring water, sun protection, and dress cool.";
+    }
+    if (pop >= 40) {
+      suggestion += " There is a good chance of rain. Bring a jacket or umbrella.";
+    }
+
+    resultsDiv.innerHTML = `
+      <div class="summary-card">
+        <h4>Forecast for ${city}</h4>
+        <div class="summary-row">
+          <span class="summary-label">Conditions:</span>
+          <span class="summary-value">${description}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Temperature:</span>
+          <span class="summary-value">${temp}°F (feels like ${feels}°F)</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Chance of rain:</span>
+          <span class="summary-value">${pop}%</span>
+        </div>
+        <div style="margin-top:10px; font-size:14px; color:#083b45;">
+          <strong>What to bring:</strong><br />
+          ${suggestion}
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    console.error(err);
+    resultsDiv.innerHTML = "Sorry, we could not load the weather. Try again.";
+  }
 }
 
 // Screen navigation
@@ -608,8 +692,36 @@ function render() {
         </button>
 
         <button class="btn-secondary" onclick="goTo('routeDetails')">
-          Edit Step 3 (Routes & Purpose)
+          Edit Step 3 (Routes and Purpose)
         </button>
+
+        <button class="btn-secondary" onclick="goTo('home')">
+          Back to Home
+        </button>
+      </div>
+    `;
+  }
+
+  // WEATHER LOOKUP SCREEN
+  else if (currentScreen === "weather") {
+    app.innerHTML = `
+      <div class="screen">
+        <h2>Check Weather for Your Trip</h2>
+        <p>Use this screen to look up the weather for your CBI destination.</p>
+
+        <label for="weatherCity">City or destination</label>
+        <input
+          id="weatherCity"
+          type="text"
+          placeholder="Example: Anaheim, CA"
+          value="${currentTrip.destinationAddress || currentTrip.destinationName || ""}"
+        />
+
+        <button class="btn-primary" onclick="lookupWeather()">
+          Look up weather
+        </button>
+
+        <div id="weatherResults" style="margin-top:16px;"></div>
 
         <button class="btn-secondary" onclick="goTo('home')">
           Back to Home
@@ -623,7 +735,7 @@ function render() {
     app.innerHTML = `
       <div class="screen">
         <h2>Past Trips</h2>
-        <p>Saved trips will show here soon.</p>
+        <p>Saved trips will show here in a future update.</p>
 
         <button class="btn-secondary" onclick="goTo('home')">
           Back to Home
@@ -637,7 +749,7 @@ function render() {
     app.innerHTML = `
       <div class="screen">
         <h2>Practice Google Maps</h2>
-        <p>Practice scenarios will appear here.</p>
+        <p>Practice scenarios will appear here in a future update.</p>
 
         <button class="btn-secondary" onclick="goTo('home')">
           Back to Home
