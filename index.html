@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CBI Planner</title>
 
-  <!-- Main stylesheet -->
+  <!-- Main styles -->
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- Font Awesome Icons -->
+  <!-- Font Awesome for icons -->
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
@@ -17,28 +17,26 @@
     referrerpolicy="no-referrer"
   />
 </head>
-
 <body>
-
-  <!-- SIDEBAR -->
+  <!-- Apple-style glassmorphism sidebar -->
   <aside class="sidebar">
     <div class="sidebar-header">
       <i class="fa-solid fa-bus"></i>
-      <span>CBI Planner</span>
+      CBI Planner
     </div>
 
-    <div class="sidebar-item active" data-screen="home">
+    <div class="sidebar-item" data-screen="home">
       <i class="fa-solid fa-house"></i>
       <span>Home</span>
     </div>
 
     <div class="sidebar-item" data-screen="planDestination">
-      <i class="fa-solid fa-route"></i>
+      <i class="fa-solid fa-map"></i>
       <span>Plan new trip</span>
     </div>
 
     <div class="sidebar-item" data-screen="mapsInstructions">
-      <i class="fa-solid fa-map-location-dot"></i>
+      <i class="fa-solid fa-route"></i>
       <span>Google Maps steps</span>
     </div>
 
@@ -47,6 +45,7 @@
       <span>Route details</span>
     </div>
 
+    <!-- NEW: Weather lookup screen -->
     <div class="sidebar-item" data-screen="weather">
       <i class="fa-solid fa-cloud-sun"></i>
       <span>Check weather</span>
@@ -63,12 +62,11 @@
     </div>
   </aside>
 
-  <!-- MAIN CONTENT AREA -->
+  <!-- Main app content -->
   <main class="main">
     <div id="app"></div>
   </main>
 
-  <!-- App logic -->
   <script src="app.js"></script>
 </body>
 </html>
