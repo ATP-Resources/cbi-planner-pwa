@@ -1,337 +1,288 @@
-@import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600&display=swap');
-
 :root {
-    --primary-color: #0066ff;
-    --sidebar-width: 280px;
-    --sidebar-collapsed-width: 80px;
-    --transition-speed: 0.3s;
+  --sidebar-width: 260px;
+  --sidebar-bg: rgba(15, 23, 42, 0.55);
+  --sidebar-border: rgba(148, 163, 184, 0.5);
+  --accent: #0f766e;
+  --accent-soft: #0d9488;
+  --text-main: #0f172a;
+  --surface: rgba(255, 255, 255, 0.9);
 }
+
+/* Reset */
 
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
+
+/* Page background */
 
 body {
-    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: linear-gradient(135deg, #2a2a72 0%, #009ffd 74%);
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    overflow: hidden;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top left, #14b8a6, #0f172a 40%, #0f766e 90%);
+  min-height: 100vh;
+  color: var(--text-main);
 }
 
-/* Outer app shell - glass container */
-.app-shell,
-.container {
-    display: flex;
-    width: 90%;
-    height: 85vh;
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(30px);
-    -webkit-backdrop-filter: blur(30px);
-    border-radius: 24px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    overflow: hidden;
+/* Layout shell */
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
 }
 
-/* Sidebar base */
-.sidebar {
-    width: var(--sidebar-width);
-    height: 100%;
-    padding: 30px 15px;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-    display: flex;
-    flex-direction: column;
-    transition: width var(--transition-speed) ease;
-    position: relative;
-}
+/* Apple style glass sidebar */
 
-/* Extra glass feel if you want to target just this sidebar */
 .glass-sidebar {
-    background: rgba(255, 255, 255, 0.14);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border-right: 1px solid rgba(255, 255, 255, 0.16);
+  width: var(--sidebar-width);
+  padding: 24px 18px;
+  background: var(--sidebar-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid var(--sidebar-border);
+  display: flex;
+  flex-direction: column;
+  color: #e5e7eb;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.25),
+              0 20px 40px rgba(0, 0, 0, 0.55);
 }
 
-/* Inner layout to push footer profile to bottom */
-.sidebar-inner {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+/* Sidebar logo */
+
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
 }
 
-/* Sidebar footer area */
-.sidebar-footer {
-    margin-top: auto;
+.sidebar-logo-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 30% 0%, rgba(255, 255, 255, 0.9), rgba(148, 163, 184, 0.3));
+  color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.6);
 }
 
-.logo {
-    text-align: center;
-    margin-bottom: 40px;
+.sidebar-logo-text {
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  font-size: 15px;
 }
 
-.logo-circle {
-    width: 44px;
-    height: 44px;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto;
-    background: radial-gradient(circle at 30% 0%, rgba(255,255,255,0.6), rgba(255,255,255,0.1));
+/* Sidebar menu */
+
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.logo i,
-.logo-circle i {
-    font-size: 26px;
-    color: #fff;
-    opacity: 0.95;
+.sidebar-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: none;
+  background: transparent;
+  color: #e5e7eb;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.18s ease, transform 0.18s ease;
 }
 
-.menu ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+.sidebar-item i {
+  font-size: 16px;
+  width: 22px;
+  text-align: center;
 }
 
-.menu li {
-    margin-bottom: 8px;
-    border-radius: 16px;
-    transition: all 0.2s ease;
-    position: relative;
+.sidebar-item span {
+  white-space: nowrap;
 }
 
-.menu li:hover {
-    background: rgba(255, 255, 255, 0.2);
+.sidebar-item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(255, 255, 255, 0.12), transparent 65%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
 }
 
-.menu li.active {
-    background: rgba(255, 255, 255, 0.25);
+.sidebar-item:hover {
+  background: rgba(148, 163, 184, 0.26);
 }
 
-.menu li.active::before {
-    content: '';
-    position: absolute;
-    left: -15px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 4px;
-    height: 20px;
-    background: var(--primary-color);
-    border-radius: 0 4px 4px 0;
+.sidebar-item:hover::after {
+  opacity: 1;
 }
 
-.menu a {
-    display: flex;
-    align-items: center;
-    color: #fff;
-    padding: 12px 16px;
-    text-decoration: none;
-    font-weight: 500;
-    letter-spacing: 0.3px;
+.sidebar-item.active {
+  background: rgba(15, 118, 110, 0.95);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35),
+              0 14px 30px rgba(0, 0, 0, 0.55);
 }
 
-.menu a i {
-    font-size: 20px;
-    margin-right: 14px;
-    min-width: 22px;
-    text-align: center;
+.sidebar-item.active i,
+.sidebar-item.active span {
+  color: #ecfeff;
 }
 
-.profile {
-    display: flex;
-    align-items: center;
-    padding: 16px;
-    background: rgba(255, 255, 255, 0.12);
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+/* Main CBI area */
+
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.96), rgba(226, 232, 240, 0.96));
 }
 
-.avatar {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    overflow: hidden;
-    margin-right: 12px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
+/* Existing header styling for CBI */
+
+.header {
+  background: var(--accent);
+  padding: 16px 24px;
+  text-align: left;
+  color: white;
+  box-shadow: 0 8px 20px rgba(15, 118, 110, 0.45);
 }
 
-.avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+.header h1 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 0.04em;
 }
 
-.user-info h3 {
-    font-size: 16px;
-    font-weight: 500;
-    margin-bottom: 2px;
+/* CBI screen container (inside #app) */
+
+#app {
+  padding: 24px;
 }
 
-.user-info p {
-    font-size: 12px;
-    opacity: 0.8;
+/* Keep your previous screen styles */
+
+.screen {
+  padding: 20px;
+  background: var(--surface);
+  border-radius: 18px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
 }
 
-/* Main content area */
-.content {
-    flex: 1;
-    padding: 40px;
-    overflow-y: auto;
+/* Headings inside screens */
+
+.screen h2 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: var(--text-main);
 }
 
-/* Content header */
-.content-header {
-    margin-bottom: 30px;
+/* Buttons */
+
+button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 12px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
 }
 
-.content-header h1 {
-    font-size: 32px;
-    font-weight: 600;
-    margin-bottom: 8px;
+.btn-primary {
+  background: var(--accent-soft);
+  color: white;
 }
 
-.content-header p {
-    font-size: 16px;
-    opacity: 0.8;
+.btn-secondary {
+  background: #9ca3af;
+  color: white;
 }
 
-/* Card layout */
-.card-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 24px;
-    margin-top: 30px;
+button[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
-.card {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-radius: 20px;
-    padding: 24px;
-    display: flex;
-    align-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+/* Labels and inputs */
+
+label {
+  display: block;
+  margin-top: 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #111827;
 }
 
-.card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 4px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 15px;
+  box-sizing: border-box;
 }
 
-/* Optional extra class if you want to target glass cards specifically */
-.glass-card {
-    background: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
+/* Step list and section title (you already used these) */
 
-.card-icon {
-    width: 50px;
-    height: 50px;
-    background: var(--primary-color);
-    border-radius: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 16px;
-}
-
-.card-icon i {
-    font-size: 22px;
-}
-
-.card-info h3 {
-    font-size: 24px;
-    font-weight: 600;
-    margin-bottom: 4px;
-}
-
-.card-info p {
-    font-size: 14px;
-    opacity: 0.8;
-}
-
-/* Apple style liquid effects on menu hover border */
-.menu li::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    border-radius: 16px;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0);
-    transition: box-shadow 0.3s ease;
-}
-
-.menu li:hover::after {
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
-}
-
-/* Ordered list styling for instruction steps if used */
 .step-list {
-    margin-top: 12px;
-    padding-left: 20px;
+  margin-top: 12px;
+  padding-left: 20px;
 }
 
 .step-list li {
-    margin-bottom: 8px;
+  margin-bottom: 8px;
 }
 
-/* Section title helper */
 .section-title {
-    margin-top: 20px;
-    margin-bottom: 8px;
+  margin-top: 20px;
+  margin-bottom: 8px;
 }
 
-/* Responsive tweaks */
-@media (max-width: 1024px) {
-    .sidebar {
-        width: var(--sidebar-collapsed-width);
-    }
-    
-    .menu a span,
-    .user-info {
-        display: none;
-    }
-    
-    .profile {
-        justify-content: center;
-    }
-    
-    .avatar {
-        margin-right: 0;
-    }
-    
-    .content {
-        padding: 30px;
-    }
-    
-    .card-container {
-        grid-template-columns: repeat(2, 1fr);
-    }
+/* Responsive: collapse sidebar text on narrow screens */
+
+@media (max-width: 900px) {
+  .glass-sidebar {
+    width: 70px;
+    align-items: center;
+  }
+
+  .sidebar-logo-text {
+    display: none;
+  }
+
+  .sidebar-item span {
+    display: none;
+  }
+
+  .sidebar-item {
+    justify-content: center;
+  }
+
+  .main-area {
+    padding-left: 0;
+  }
 }
 
-@media (max-width: 768px) {
-    .app-shell,
-    .container {
-        width: 95%;
-        height: 90vh;
-    }
-    
-    .card-container {
-        grid-template-columns: 1fr;
-    }
+@media (max-width: 640px) {
+  #app {
+    padding: 16px;
+  }
+
+  .screen {
+    padding: 16px;
+  }
 }
