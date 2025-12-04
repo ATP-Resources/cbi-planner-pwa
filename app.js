@@ -9,14 +9,14 @@ let currentTrip = {
   meetTime: ""
 };
 
-// Used by inputs in the form
+// Update fields in the current trip object
 function updateTripField(field, value) {
   currentTrip[field] = value;
 }
 
 // Build a Google Maps transit link from school to the destination
 function openMapsForCurrentTrip() {
-  // You can change this to your exact school address
+  // Change this to your exact school address if you want
   const origin = "Katella High School, Anaheim, CA";
 
   const destination = `${currentTrip.destinationName} ${currentTrip.destinationAddress}`.trim();
@@ -91,4 +91,68 @@ function render() {
           id="destAddress"
           type="text"
           placeholder="Street, city, state"
-          value="${currentTr
+          value="${currentTrip.destinationAddress}"
+          oninput="updateTripField('destinationAddress', this.value)"
+        />
+
+        <label for="tripDate">Date of trip</label>
+        <input
+          id="tripDate"
+          type="date"
+          value="${currentTrip.tripDate}"
+          oninput="updateTripField('tripDate', this.value)"
+        />
+
+        <label for="meetTime">Meet time</label>
+        <input
+          id="meetTime"
+          type="time"
+          value="${currentTrip.meetTime}"
+          oninput="updateTripField('meetTime', this.value)"
+        />
+
+        <button
+          class="btn-primary"
+          onclick="openMapsForCurrentTrip()"
+        >
+          Open in Google Maps (Transit)
+        </button>
+
+        <button class="btn-secondary" onclick="goTo('home')">
+          Back to Home
+        </button>
+      </div>
+    `;
+  }
+
+  // PAST TRIPS SCREEN (placeholder for now)
+  else if (currentScreen === "past") {
+    app.innerHTML = `
+      <div class="screen">
+        <h2>Past Trips</h2>
+        <p>Saved trips will show here soon.</p>
+
+        <button class="btn-secondary" onclick="goTo('home')">
+          Back to Home
+        </button>
+      </div>
+    `;
+  }
+
+  // PRACTICE MAPS SCREEN (placeholder for now)
+  else if (currentScreen === "practice") {
+    app.innerHTML = `
+      <div class="screen">
+        <h2>Practice Google Maps</h2>
+        <p>Practice scenarios will appear here.</p>
+
+        <button class="btn-secondary" onclick="goTo('home')">
+          Back to Home
+        </button>
+      </div>
+    `;
+  }
+}
+
+// First render
+render();
