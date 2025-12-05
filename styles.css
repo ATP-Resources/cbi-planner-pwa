@@ -12,12 +12,6 @@
 
 body {
   font-family: 'Inter', sans-serif;
-
-  /* Animated gradient background */
-  background: linear-gradient(-45deg, #0f766e, #0ea5e9, #1d4ed8, #0f172a);
-  background-size: 400% 400%;
-  animation: cbiGradient 18s ease infinite;
-
   display: flex;
   height: 100vh;
   overflow: hidden;
@@ -145,9 +139,21 @@ h3.section-title {
   color: #064f58;
 }
 
+.section-subtitle {
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: #5b7a84;
+}
+
 p {
   margin-bottom: 14px;
   color: #244b55;
+}
+
+.helper-note {
+  font-size: 13px;
+  color: #5b7a84;
+  margin-top: 4px;
 }
 
 /* =========================================================
@@ -180,6 +186,14 @@ select:focus {
   border-color: #0ca8a8;
   background: #fff;
   outline: none;
+}
+
+.textarea-small {
+  min-height: 70px;
+}
+
+.textarea-medium {
+  min-height: 110px;
 }
 
 /* =========================================================
@@ -260,6 +274,30 @@ select:focus {
 .purpose-item input {
   margin-right: 10px;
   transform: scale(1.25);
+}
+
+/* =========================================================
+   PACKING CHECKLIST
+========================================================= */
+
+.checklist-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+
+.checklist-item {
+  font-size: 14px;
+  color: #083b45;
+  display: flex;
+  align-items: center;
+}
+
+.checklist-item input {
+  margin-right: 6px;
+  transform: scale(1.15);
 }
 
 /* =========================================================
@@ -344,6 +382,7 @@ select:focus {
     padding: 20px;
   }
 }
+
 /* =========================================================
    ANIMATED BACKGROUND GRADIENT
 ========================================================= */
@@ -359,5 +398,3 @@ body {
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
-
-
