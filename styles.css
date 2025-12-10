@@ -1,83 +1,418 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/styles.css b/styles.css
-index 21e5f79fdfb96ef0f86074388c5281f581ba8d7f..20f9c72b96405a3b0fd38285cdb9bafd5804084d 100644
---- a/styles.css
-+++ b/styles.css
-@@ -123,54 +123,70 @@ body {
- /* =========================================================
-    TYPOGRAPHY
- ========================================================= */
- 
- h2 {
-   font-size: 28px;
-   font-weight: 600;
-   margin-bottom: 6px;
-   color: #064f58;
- }
- 
- h3.section-title {
-   margin-top: 22px;
-   margin-bottom: 8px;
-   font-size: 20px;
-   font-weight: 600;
-   color: #064f58;
- }
- 
- .section-subtitle {
-   font-size: 14px;
-   margin-bottom: 8px;
-   color: #5b7a84;
- }
- 
--p {
--  margin-bottom: 14px;
--  color: #244b55;
--}
-+p {
-+  margin-bottom: 14px;
-+  color: #244b55;
-+}
-+
-+.user-badge {
-+  background: #e6f7f6;
-+  border: 1px solid #b6e4e0;
-+  color: #0b4f58;
-+  padding: 10px 12px;
-+  border-radius: 10px;
-+  margin-bottom: 12px;
-+  font-size: 14px;
-+}
-+
-+.user-badge.muted {
-+  background: #f4f8fa;
-+  border-color: #d5e1e7;
-+  color: #5b7a84;
-+}
- 
- .helper-note {
-   font-size: 13px;
-   color: #5b7a84;
-   margin-top: 4px;
- }
- 
- /* =========================================================
-    FORM ELEMENTS
- ========================================================= */
- 
- label {
-   font-weight: 600;
-   margin-top: 14px;
-   display: block;
-   color: #084f58;
- }
- 
- input,
- textarea,
- select {
-   width: 100%;
-   padding: 12px 14px;
-   margin-top: 6px;
-   font-size: 15px;
- 
-EOF
-)
+/* =========================================================
+   GLOBAL STYLES AND LAYOUT
+   ========================================================= */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap");
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: linear-gradient(135deg, #0f9bb8 0%, #007c8f 40%, #045b6a 100%);
+  color: #062f3a;
+}
+
+/* App shell splits sidebar and main content */
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* =========================================================
+   SIDEBAR - GLASSMORPHISM STYLE
+   ========================================================= */
+
+.sidebar {
+  width: 260px;
+  background: rgba(0, 25, 35, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 24px 18px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.sidebar-header i {
+  font-size: 22px;
+}
+
+/* Sidebar navigation buttons */
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-item {
+  width: 100%;
+  border: none;
+  padding: 12px 16px;
+  border-radius: 16px;
+  color: #ffffff;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.25s ease, transform 0.15s ease;
+}
+
+.sidebar-item i {
+  font-size: 18px;
+  width: 22px;
+  text-align: center;
+}
+
+.sidebar-item:focus-visible {
+  outline: 2px solid #00f5c4;
+  outline-offset: 2px;
+}
+
+.sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.sidebar-item.active {
+  background: rgba(0, 210, 168, 0.9);
+  font-weight: 600;
+}
+
+/* Mouse follow glow effect */
+
+.sidebar-item::before {
+  content: "";
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.2), transparent);
+  top: var(--y, 50%);
+  left: var(--x, 50%);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.sidebar-item:hover::before {
+  opacity: 1;
+}
+
+/* =========================================================
+   MAIN CONTENT AREA
+   ========================================================= */
+
+.main {
+  flex: 1;
+  padding: 32px 40px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  overflow-y: auto;
+}
+
+.app-root {
+  width: 100%;
+}
+
+/* Screen container card */
+
+.screen {
+  background: #ffffff;
+  max-width: 1100px;
+  margin: 0 auto 24px auto;
+  padding: 32px 32px 40px 32px;
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Simple fade in for screen changes */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =========================================================
+   TYPOGRAPHY
+   ========================================================= */
+
+h1,
+h2,
+h3,
+h4 {
+  color: #064f58;
+}
+
+h2 {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+h3.section-title {
+  margin-top: 22px;
+  margin-bottom: 8px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+p {
+  margin-bottom: 14px;
+  color: #244b55;
+  line-height: 1.4;
+}
+
+.small-note {
+  font-size: 13px;
+  color: #5d7680;
+}
+
+/* =========================================================
+   FORM ELEMENTS
+   ========================================================= */
+
+label {
+  font-weight: 600;
+  margin-top: 14px;
+  display: block;
+  color: #084f58;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 12px 14px;
+  margin-top: 6px;
+  font-size: 15px;
+  border-radius: 10px;
+  border: 1px solid #cfdce3;
+  background: #f8fafb;
+  transition: border 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #0ca8a8;
+  background: #ffffff;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(12, 168, 168, 0.25);
+}
+
+textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.btn-primary,
+.btn-secondary {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  margin-top: 18px;
+}
+
+.btn-primary {
+  background: #0a8a8a;
+  color: #ffffff;
+  transition: background 0.2s ease, transform 0.12s ease;
+}
+
+.btn-primary:hover {
+  background: #076d6d;
+}
+
+.btn-primary:active {
+  transform: scale(0.97);
+}
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible {
+  outline: 2px solid #00bfa6;
+  outline-offset: 2px;
+}
+
+.btn-secondary {
+  background: #d2d9dc;
+  color: #113a45;
+  font-weight: 500;
+  transition: background 0.25s ease;
+}
+
+.btn-secondary:hover {
+  background: #c3cbd0;
+}
+
+/* =========================================================
+   STEP LISTS AND CHECKLISTS
+   ========================================================= */
+
+.step-list {
+  padding-left: 22px;
+  margin-bottom: 22px;
+}
+
+.step-list li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.purpose-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.purpose-item {
+  font-size: 15px;
+  color: #083b45;
+  display: flex;
+  align-items: center;
+}
+
+.purpose-item input[type="checkbox"] {
+  margin-right: 10px;
+  transform: scale(1.2);
+}
+
+/* =========================================================
+   SUMMARY CARDS
+   ========================================================= */
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.summary-card {
+  background: #f5fafb;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #dde5ea;
+}
+
+.summary-card h4 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.summary-label {
+  font-weight: 600;
+  color: #084f58;
+}
+
+.summary-value {
+  color: #244b55;
+  text-align: right;
+}
+
+.summary-list {
+  margin-left: 18px;
+  font-size: 14px;
+  color: #244b55;
+}
+
+/* Weather result helper */
+
+.weather-note {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #083b45;
+}
+
+/* =========================================================
+   RESPONSIVE DESIGN
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: 220px;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    flex-direction: row;
+    width: 100%;
+    height: auto;
+    overflow-x: auto;
+    padding: 12px;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .sidebar-item {
+    flex: 1 0 auto;
+    justify-content: center;
+  }
+
+  .main {
+    padding: 20px;
+  }
+
+  .screen {
+    padding: 22px 18px 26px 18px;
+  }
+}
