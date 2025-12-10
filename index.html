@@ -1,99 +1,139 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CBI Planner</title>
-
-  <!-- Main styles -->
-  <link rel="stylesheet" href="styles.css" />
-
-  <!-- Font Awesome for icons -->
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-    integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
-    crossorigin="anonymous"
-    referrerpolicy="no-referrer"
-  />
-</head>
-<body>
-  <!-- Apple-style glassmorphism sidebar -->
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <i class="fa-solid fa-bus"></i>
-      CBI Planner
-    </div>
-
-    <div class="sidebar-item" data-screen="home">
-      <i class="fa-solid fa-house"></i>
-      <span>Home</span>
-    </div>
-
-    <!-- Step 1 -->
-    <div class="sidebar-item" data-screen="planDestination">
-      <i class="fa-solid fa-clipboard-list"></i>
-      <span>Step 1 · Basic info</span>
-    </div>
-
-    <!-- Step 2 -->
-    <div class="sidebar-item" data-screen="mapsInstructions">
-      <i class="fa-solid fa-map"></i>
-      <span>Step 2 · Google Maps</span>
-    </div>
-
-    <!-- Step 3 -->
-    <div class="sidebar-item" data-screen="routeDetails">
-      <i class="fa-solid fa-bus-simple"></i>
-      <span>Step 3 · Route details</span>
-    </div>
-
-    <!-- Step 4 -->
-    <div class="sidebar-item" data-screen="purpose">
-      <i class="fa-solid fa-circle-question"></i>
-      <span>Step 4 · Trip purpose</span>
-    </div>
-
-    <!-- Step 5 -->
-    <div class="sidebar-item" data-screen="safetyPacking">
-      <i class="fa-solid fa-shield-heart"></i>
-      <span>Step 5 · Safety & packing</span>
-    </div>
-
-    <!-- Step 6 -->
-    <div class="sidebar-item" data-screen="reflection">
-      <i class="fa-solid fa-comment-dots"></i>
-      <span>Step 6 · Reflection</span>
-    </div>
-
-    <!-- Weather reading tool -->
-    <div class="sidebar-item" data-screen="weather">
-      <i class="fa-solid fa-cloud-sun"></i>
-      <span>Check weather</span>
-    </div>
-
-    <!-- Summary for teacher and student review -->
-    <div class="sidebar-item" data-screen="summary">
-      <i class="fa-solid fa-list-check"></i>
-      <span>Trip summary</span>
-    </div>
-
-    <div class="sidebar-item" data-screen="past">
-      <i class="fa-solid fa-clock-rotate-left"></i>
-      <span>Past trips</span>
-    </div>
-
-    <div class="sidebar-item" data-screen="practice">
-      <i class="fa-solid fa-graduation-cap"></i>
-      <span>Practice maps</span>
-    </div>
-  </aside>
-
-  <!-- Main app content -->
-  <main class="main">
-    <div id="app"></div>
-  </main>
-
-  <script src="app.js"></script>
-</body>
-</html>
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/index.html b/index.html
+index 31433f4f878fcf2590bab28bc88449d241de30bd..c6ee5b73abc5b9b00b158fdb0b5046c8a210bf80 100644
+--- a/index.html
++++ b/index.html
+@@ -3,97 +3,112 @@
+ <head>
+   <meta charset="UTF-8" />
+   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+   <title>CBI Planner</title>
+ 
+   <!-- Main styles -->
+   <link rel="stylesheet" href="styles.css" />
+ 
+   <!-- Font Awesome for icons -->
+   <link
+     rel="stylesheet"
+     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+     integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+     crossorigin="anonymous"
+     referrerpolicy="no-referrer"
+   />
+ </head>
+ <body>
+   <!-- Apple-style glassmorphism sidebar -->
+   <aside class="sidebar">
+     <div class="sidebar-header">
+       <i class="fa-solid fa-bus"></i>
+       CBI Planner
+     </div>
+ 
+-    <div class="sidebar-item" data-screen="home">
+-      <i class="fa-solid fa-house"></i>
+-      <span>Home</span>
+-    </div>
++    <div class="sidebar-item" data-screen="home">
++      <i class="fa-solid fa-house"></i>
++      <span>Home</span>
++    </div>
++
++    <div class="sidebar-item" data-screen="login">
++      <i class="fa-solid fa-user"></i>
++      <span>Sign in</span>
++    </div>
+ 
+     <!-- Step 1 -->
+     <div class="sidebar-item" data-screen="planDestination">
+       <i class="fa-solid fa-clipboard-list"></i>
+       <span>Step 1 · Basic info</span>
+     </div>
+ 
+     <!-- Step 2 -->
+     <div class="sidebar-item" data-screen="mapsInstructions">
+       <i class="fa-solid fa-map"></i>
+       <span>Step 2 · Google Maps</span>
+     </div>
+ 
+     <!-- Step 3 -->
+     <div class="sidebar-item" data-screen="routeDetails">
+       <i class="fa-solid fa-bus-simple"></i>
+       <span>Step 3 · Route details</span>
+     </div>
+ 
+     <!-- Step 4 -->
+     <div class="sidebar-item" data-screen="purpose">
+       <i class="fa-solid fa-circle-question"></i>
+       <span>Step 4 · Trip purpose</span>
+     </div>
+ 
+     <!-- Step 5 -->
+     <div class="sidebar-item" data-screen="safetyPacking">
+       <i class="fa-solid fa-shield-heart"></i>
+       <span>Step 5 · Safety & packing</span>
+     </div>
+ 
+     <!-- Step 6 -->
+     <div class="sidebar-item" data-screen="reflection">
+       <i class="fa-solid fa-comment-dots"></i>
+       <span>Step 6 · Reflection</span>
+     </div>
+ 
+     <!-- Weather reading tool -->
+     <div class="sidebar-item" data-screen="weather">
+       <i class="fa-solid fa-cloud-sun"></i>
+       <span>Check weather</span>
+     </div>
+ 
+     <!-- Summary for teacher and student review -->
+-    <div class="sidebar-item" data-screen="summary">
+-      <i class="fa-solid fa-list-check"></i>
+-      <span>Trip summary</span>
+-    </div>
+-
+-    <div class="sidebar-item" data-screen="past">
+-      <i class="fa-solid fa-clock-rotate-left"></i>
+-      <span>Past trips</span>
+-    </div>
+-
+-    <div class="sidebar-item" data-screen="practice">
+-      <i class="fa-solid fa-graduation-cap"></i>
+-      <span>Practice maps</span>
+-    </div>
++    <div class="sidebar-item" data-screen="summary">
++      <i class="fa-solid fa-list-check"></i>
++      <span>Trip summary</span>
++    </div>
++
++    <div class="sidebar-item" data-screen="past">
++      <i class="fa-solid fa-clock-rotate-left"></i>
++      <span>Past trips</span>
++    </div>
++
++    <div class="sidebar-item" data-screen="studentDashboard">
++      <i class="fa-solid fa-user-graduate"></i>
++      <span>Student dashboard</span>
++    </div>
++
++    <div class="sidebar-item" data-screen="teacher">
++      <i class="fa-solid fa-chalkboard-user"></i>
++      <span>Teacher view</span>
++    </div>
++
++    <div class="sidebar-item" data-screen="practice">
++      <i class="fa-solid fa-graduation-cap"></i>
++      <span>Practice maps</span>
++    </div>
+   </aside>
+ 
+   <!-- Main app content -->
+   <main class="main">
+     <div id="app"></div>
+   </main>
+ 
+   <script src="app.js"></script>
+ </body>
+ </html>
+ 
+EOF
+)
