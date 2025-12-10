@@ -1,400 +1,83 @@
-/* =========================================================
-   GLOBAL
-========================================================= */
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: 'Inter', sans-serif;
-  display: flex;
-  height: 100vh;
-  overflow: hidden;
-}
-
-/* =========================================================
-   SIDEBAR (Apple Glassmorphism)
-========================================================= */
-
-.sidebar {
-  width: 260px;
-  background: rgba(0, 30, 40, 0.78);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 24px 18px;
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  gap: 26px;
-}
-
-.sidebar-header {
-  font-size: 22px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* Sidebar button items */
-
-.sidebar-item {
-  padding: 14px 18px;
-  border-radius: 14px;
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  position: relative;
-  overflow: hidden;
-  transition: background 0.25s, transform 0.15s;
-}
-
-.sidebar-item i {
-  font-size: 18px;
-  width: 24px;
-  text-align: center;
-}
-
-.sidebar-item:hover {
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.sidebar-item.active {
-  background: rgba(0, 200, 160, 0.70);
-  font-weight: 600;
-}
-
-/* Mouse-follow glow effect */
-
-.sidebar-item::before {
-  content: "";
-  position: absolute;
-  width: 140px;
-  height: 140px;
-  background: radial-gradient(circle, rgba(255,255,255,0.25), rgba(255,255,255,0));
-  top: var(--y);
-  left: var(--x);
-  transform: translate(-50%, -50%);
-  opacity: 0;
-  transition: opacity 0.25s ease;
-  pointer-events: none;
-}
-
-.sidebar-item:hover::before {
-  opacity: 1;
-}
-
-/* =========================================================
-   MAIN CONTENT AREA
-========================================================= */
-
-.main {
-  flex: 1;
-  overflow-y: auto;
-  padding: 32px 44px;
-}
-
-.screen {
-  background: #ffffff;
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 38px;
-  border-radius: 18px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-  animation: fadeIn 0.18s ease-out;
-}
-
-/* Fade animation */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* =========================================================
-   TYPOGRAPHY
-========================================================= */
-
-h2 {
-  font-size: 28px;
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: #064f58;
-}
-
-h3.section-title {
-  margin-top: 22px;
-  margin-bottom: 8px;
-  font-size: 20px;
-  font-weight: 600;
-  color: #064f58;
-}
-
-.section-subtitle {
-  font-size: 14px;
-  margin-bottom: 8px;
-  color: #5b7a84;
-}
-
-p {
-  margin-bottom: 14px;
-  color: #244b55;
-}
-
-.helper-note {
-  font-size: 13px;
-  color: #5b7a84;
-  margin-top: 4px;
-}
-
-/* =========================================================
-   FORM ELEMENTS
-========================================================= */
-
-label {
-  font-weight: 600;
-  margin-top: 14px;
-  display: block;
-  color: #084f58;
-}
-
-input,
-textarea,
-select {
-  width: 100%;
-  padding: 12px 14px;
-  margin-top: 6px;
-  font-size: 15px;
-  border-radius: 10px;
-  border: 1px solid #cfdce3;
-  background: #f8fafb;
-  transition: border 0.15s;
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-  border-color: #0ca8a8;
-  background: #fff;
-  outline: none;
-}
-
-.textarea-small {
-  min-height: 70px;
-}
-
-.textarea-medium {
-  min-height: 110px;
-}
-
-/* =========================================================
-   BUTTONS
-========================================================= */
-
-.btn-primary {
-  width: 100%;
-  padding: 14px;
-  background: #0a8a8a;
-  border: none;
-  color: #ffffff;
-  font-size: 17px;
-  border-radius: 12px;
-  margin-top: 22px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.2s, transform 0.15s;
-}
-
-.btn-primary:hover {
-  background: #087474;
-}
-
-.btn-primary:active {
-  transform: scale(0.97);
-}
-
-.btn-secondary {
-  width: 100%;
-  padding: 14px;
-  background: #d2d9dc;
-  border: none;
-  color: #113a45;
-  font-size: 16px;
-  border-radius: 12px;
-  margin-top: 12px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background 0.25s;
-}
-
-.btn-secondary:hover {
-  background: #c4cbce;
-}
-
-/* ========== STEP LIST ========== */
-
-.step-list {
-  padding-left: 22px;
-  margin-bottom: 24px;
-}
-
-.step-list li {
-  margin-bottom: 10px;
-  line-height: 1.4;
-}
-
-/* =========================================================
-   PURPOSE CHECKLIST
-========================================================= */
-
-.purpose-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-  margin-bottom: 12px;
-}
-
-.purpose-item {
-  font-size: 15px;
-  color: #083b45;
-  display: flex;
-  align-items: center;
-}
-
-.purpose-item input {
-  margin-right: 10px;
-  transform: scale(1.25);
-}
-
-/* =========================================================
-   PACKING CHECKLIST
-========================================================= */
-
-.checklist-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  margin-top: 8px;
-  margin-bottom: 12px;
-}
-
-.checklist-item {
-  font-size: 14px;
-  color: #083b45;
-  display: flex;
-  align-items: center;
-}
-
-.checklist-item input {
-  margin-right: 6px;
-  transform: scale(1.15);
-}
-
-/* =========================================================
-   TRIP SUMMARY CARDS
-========================================================= */
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 18px;
-  margin-top: 18px;
-  margin-bottom: 10px;
-}
-
-.summary-card {
-  background: #f5fafb;
-  border-radius: 12px;
-  padding: 16px;
-  border: 1px solid #dde5ea;
-}
-
-.summary-card h4 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #064f58;
-  margin-bottom: 8px;
-}
-
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-
-.summary-label {
-  font-weight: 600;
-  color: #084f58;
-}
-
-.summary-value {
-  color: #244b55;
-  text-align: right;
-}
-
-.summary-list {
-  margin-left: 18px;
-  font-size: 14px;
-  color: #244b55;
-}
-
-/* =========================================================
-   RESPONSIVE DESIGN
-========================================================= */
-
-@media (max-width: 900px) {
-  .sidebar {
-    width: 220px;
-  }
-}
-
-@media (max-width: 700px) {
-  body {
-    flex-direction: column;
-    height: auto;
-  }
-
-  .sidebar {
-    flex-direction: row;
-    width: 100%;
-    height: auto;
-    overflow-x: auto;
-    padding: 14px;
-  }
-
-  .sidebar-item {
-    flex: none;
-    margin-right: 12px;
-  }
-
-  .main {
-    padding: 20px;
-  }
-}
-
-/* =========================================================
-   ANIMATED BACKGROUND GRADIENT
-========================================================= */
-
-body {
-  background: linear-gradient(-45deg, #0f766e, #0ea5e9, #1d4ed8, #0f172a);
-  background-size: 400% 400%;
-  animation: cbiGradient 18s ease infinite;
-}
-
-@keyframes cbiGradient {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/styles.css b/styles.css
+index 21e5f79fdfb96ef0f86074388c5281f581ba8d7f..20f9c72b96405a3b0fd38285cdb9bafd5804084d 100644
+--- a/styles.css
++++ b/styles.css
+@@ -123,54 +123,70 @@ body {
+ /* =========================================================
+    TYPOGRAPHY
+ ========================================================= */
+ 
+ h2 {
+   font-size: 28px;
+   font-weight: 600;
+   margin-bottom: 6px;
+   color: #064f58;
+ }
+ 
+ h3.section-title {
+   margin-top: 22px;
+   margin-bottom: 8px;
+   font-size: 20px;
+   font-weight: 600;
+   color: #064f58;
+ }
+ 
+ .section-subtitle {
+   font-size: 14px;
+   margin-bottom: 8px;
+   color: #5b7a84;
+ }
+ 
+-p {
+-  margin-bottom: 14px;
+-  color: #244b55;
+-}
++p {
++  margin-bottom: 14px;
++  color: #244b55;
++}
++
++.user-badge {
++  background: #e6f7f6;
++  border: 1px solid #b6e4e0;
++  color: #0b4f58;
++  padding: 10px 12px;
++  border-radius: 10px;
++  margin-bottom: 12px;
++  font-size: 14px;
++}
++
++.user-badge.muted {
++  background: #f4f8fa;
++  border-color: #d5e1e7;
++  color: #5b7a84;
++}
+ 
+ .helper-note {
+   font-size: 13px;
+   color: #5b7a84;
+   margin-top: 4px;
+ }
+ 
+ /* =========================================================
+    FORM ELEMENTS
+ ========================================================= */
+ 
+ label {
+   font-weight: 600;
+   margin-top: 14px;
+   display: block;
+   color: #084f58;
+ }
+ 
+ input,
+ textarea,
+ select {
+   width: 100%;
+   padding: 12px 14px;
+   margin-top: 6px;
+   font-size: 15px;
+ 
+EOF
+)
