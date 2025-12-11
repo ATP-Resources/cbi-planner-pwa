@@ -1,16 +1,12 @@
 // =========================================================
 // CBI PLANNER APP LOGIC
-// Standard JS, student-friendly, teacher-friendly
+// Standard JS, student focused, teacher friendly
 // =========================================================
 
-// -------------------------------
-// Current screen
-// -------------------------------
+// Current screen name
 let currentScreen = "home";
 
-// -------------------------------
-// Main trip state for the student
-// -------------------------------
+// Main trip state for the current student
 const currentTrip = {
   // Step 1 - basic info
   destinationName: "",
@@ -29,7 +25,7 @@ const currentTrip = {
     totalTime: ""
   },
 
-  // Step 3 - route back
+  // Route back
   routeBack: {
     busNumber: "",
     direction: "",
@@ -40,7 +36,7 @@ const currentTrip = {
     totalTime: ""
   },
 
-  // Step 4 - purpose (skills practiced)
+  // Purpose
   purpose: {
     lifeSkills: false,
     communityAccess: false,
@@ -53,7 +49,7 @@ const currentTrip = {
     otherText: ""
   },
 
-  // Weather — student-interpretation focused
+  // Weather (students interpret)
   weather: {
     city: "",
     tempF: null,
@@ -65,7 +61,7 @@ const currentTrip = {
 };
 
 // =========================================================
-// HELPER FUNCTIONS TO UPDATE STATE
+// HELPER FUNCTIONS
 // =========================================================
 
 function updateTripField(field, value) {
@@ -93,9 +89,8 @@ function updateWeatherWhatToBring(value) {
 }
 
 // =========================================================
-// GOOGLE MAPS LAUNCHER — students still read & copy details
+// GOOGLE MAPS (students still look up details themselves)
 // =========================================================
-
 function openMapsForCurrentTrip() {
   const origin = "Katella High School, Anaheim, CA";
   const destination = `${currentTrip.destinationName} ${currentTrip.destinationAddress}`.trim();
@@ -113,39 +108,35 @@ function openMapsForCurrentTrip() {
 }
 
 // =========================================================
-// PURPOSE SUMMARY BUILDER FOR SUMMARY SCREEN
+// PURPOSE SUMMARY BUILDER
 // =========================================================
-
 function renderPurposeSummaryList() {
   const p = currentTrip.purpose;
-  const list = [];
+  const items = [];
 
-  if (p.lifeSkills) list.push("Life skills (shopping, ordering, daily living)");
-  if (p.communityAccess) list.push("Community access and navigation");
-  if (p.moneySkills) list.push("Money skills (budgeting, paying, change)");
-  if (p.communication) list.push("Communication and self advocacy");
-  if (p.socialSkills) list.push("Social skills and teamwork");
-  if (p.employmentPrep) list.push("Employment preparation or work skills");
-  if (p.recreationLeisure) list.push("Recreation and leisure in the community");
-  if (p.safetySkills) list.push("Safety skills (street safety, stranger awareness)");
-  if (p.otherText.trim() !== "") list.push("Other: " + p.otherText.trim());
+  if (p.lifeSkills) items.push("Life skills (shopping, ordering, daily living)");
+  if (p.communityAccess) items.push("Community access and navigation");
+  if (p.moneySkills) items.push("Money skills (budgeting, paying, change)");
+  if (p.communication) items.push("Communication and self advocacy");
+  if (p.socialSkills) items.push("Social skills and teamwork");
+  if (p.employmentPrep) items.push("Employment preparation or work skills");
+  if (p.recreationLeisure) items.push("Recreation and leisure in the community");
+  if (p.safetySkills) items.push("Safety skills (street safety, stranger awareness)");
+  if (p.otherText.trim()) items.push(`Other: ${p.otherText.trim()}`);
 
-  if (!list.length) {
-    return "<li>No purposes selected yet.</li>";
-  }
-
-  return list.map(item => `<li>${item}</li>`).join("");
+  if (!items.length) return "<li>No purposes selected yet.</li>";
+  return items.map(text => `<li>${text}</li>`).join("");
 }
 
 // =========================================================
-// WEATHER LOOKUP — Using OpenWeatherMap
-// Students interpret — NOT auto decision-making
+// WEATHER LOOKUP (OpenWeatherMap API)
+// Students type city and interpret data themselves
 // =========================================================
 
-// IMPORTANT — Your actual API key (now fixed with quotes)
-const WEATHER_API_KEY = "f9715f76f28be705da13c53ab5fcc2c5";
+// 🔑 Your API Key — EDIT HERE ONLY
+const WEATHER_API_KEY = "PUT_YOUR_API_KEY_HERE";
 
-// Called when student clicks “Look up weather”
+// Students click “Look up weather”
 async function lookupWeather() {
   const cityInput = document.getElementById("weatherCity");
   const resultsDiv = document.getElementById("weatherResults");
@@ -155,11 +146,11 @@ async function lookupWeather() {
 
   const city = cityInput.value.trim();
   if (!city) {
-    alert("Type a city or destination first.");
+    alert("Type a city first.");
     return;
   }
 
-  // Reset student packing notes on new lookup
+  // Clear student answer on new lookup
   if (bringInput) {
     bringInput.value = "";
     updateWeatherWhatToBring("");
@@ -168,54 +159,44 @@ async function lookupWeather() {
   resultsDiv.innerHTML = "Loading weather...";
 
   try {
-    // Using CURRENT weather endpoint — simpler for students
-    const url =
-      `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}` +
-      `&units=imperial&appid=${WEATHER_API_KEY}`;
+    const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
+      city
+    )}&units=imperial&appid=${WEATHER_API_KEY}`;
 
     const response = await fetch(url);
 
     if (!response.ok) {
-      let msg = `Weather lookup failed (status ${response.status}).`;
-      try {
-        const errJSON = await response.json();
-        if (errJSON?.message) msg += " " + errJSON.message;
-      } catch {}
-      resultsDiv.innerHTML = msg;
+      let message = `Weather lookup failed (status ${response.status}).`;
+      const errorData = await response.json().catch(() => null);
+      if (errorData?.message) message += ` ${errorData.message}`;
+      resultsDiv.innerHTML = message;
       return;
     }
 
     const data = await response.json();
 
-    if (!data.main || !data.weather?.length) {
-      resultsDiv.innerHTML = "No weather data found.";
-      return;
-    }
-
     const temp = Math.round(data.main.temp);
     const feels = Math.round(data.main.feels_like);
-    const desc = data.weather[0].description;
+    const description = data.weather[0].description;
 
-    // Save to trip so teacher can later view it
+    const rainNote =
+      data.weather[0].main === "Rain" || data.weather[0].main === "Drizzle"
+        ? "Rain is happening or likely now."
+        : "No rain reported right now.";
+
+    // Save weather summary
     currentTrip.weather.city = city;
     currentTrip.weather.tempF = temp;
     currentTrip.weather.feelsLikeF = feels;
-    currentTrip.weather.description = desc;
+    currentTrip.weather.description = description;
 
-    // Light interpretation text
-    const rainText =
-      data.weather[0].main === "Rain" || data.weather[0].main === "Drizzle"
-        ? "Rain is happening or very likely right now."
-        : "No rain reported right now.";
-
-    // Display card
     resultsDiv.innerHTML = `
       <div class="summary-card">
-        <h4>Weather for ${city}</h4>
+        <h4>Weather information for ${city}</h4>
 
         <div class="summary-row">
           <span class="summary-label">Conditions:</span>
-          <span class="summary-value">${desc}</span>
+          <span class="summary-value">${description}</span>
         </div>
 
         <div class="summary-row">
@@ -224,36 +205,32 @@ async function lookupWeather() {
         </div>
 
         <div class="summary-row">
-          <span class="summary-label">Rain:</span>
-          <span class="summary-value">${rainText}</span>
+          <span class="summary-label">Rain note:</span>
+          <span class="summary-value">${rainNote}</span>
         </div>
 
         <p class="weather-note">
-          Use this information to decide what YOU should bring.
-          The app does not choose for you.
+          Use this information to decide what you should bring.
+          The app does NOT choose for you. You make the plan.
         </p>
       </div>
     `;
   } catch (err) {
     console.error(err);
     resultsDiv.innerHTML =
-      "Unable to load weather. Check your internet connection and try again.";
+      "Weather could not be loaded. Check your connection or try again.";
   }
 }
 
 // =========================================================
-// ROUTING LOGIC — switch screens
+// RENDER SCREENS
 // =========================================================
 
-function goTo(screen) {
-  currentScreen = screen;
+function goTo(screenName) {
+  currentScreen = screenName;
   render();
-  highlightSidebar(screen);
+  highlightSidebar(screenName);
 }
-
-// =========================================================
-// RENDER FUNCTION — loads correct screen into #app
-// =========================================================
 
 function render() {
   const app = document.getElementById("app");
@@ -264,179 +241,149 @@ function render() {
     app.innerHTML = `
       <section class="screen">
         <h2>Welcome</h2>
-        <p>Use this CBI Planner to prepare for your community-based instruction trip.</p>
-
-        <p class="small-note">
-          You will use Google Maps, read information, and type your answers.
-          The app does not do the planning for you.
-        </p>
+        <p>Use this planner to get ready for your CBI trip.</p>
 
         <button class="btn-primary" onclick="goTo('planDestination')">
           Start a new CBI trip
         </button>
 
         <button class="btn-secondary" onclick="goTo('practice')">
-          Practice Maps
+          Practice using Google Maps
         </button>
       </section>
     `;
   }
 
-  // ---------------- STEP 1 — BASIC INFO ----------------
+  // ---------------- STEP 1 BASIC INFO ----------------
   else if (currentScreen === "planDestination") {
     app.innerHTML = `
       <section class="screen">
-        <h2>Step 1 — Basic info</h2>
-        <p>Enter the basic information for your trip.</p>
+        <h2>Step 1 - Basic info</h2>
 
-        <label for="destName">Destination name</label>
-        <input id="destName" type="text" value="${currentTrip.destinationName}"
-          placeholder="Example: Target, Costco, Ayres Hotel"
-          oninput="updateTripField('destinationName', this.value)" />
+        <label>Destination name</label>
+        <input
+          type="text"
+          oninput="updateTripField('destinationName', this.value)"
+          value="${currentTrip.destinationName}"
+          placeholder="Example: Target"
+        />
 
-        <label for="destAddress">Destination address</label>
-        <input id="destAddress" type="text" value="${currentTrip.destinationAddress}"
-          placeholder="Street, city, state"
-          oninput="updateTripField('destinationAddress', this.value)" />
+        <label>Destination address</label>
+        <input
+          type="text"
+          oninput="updateTripField('destinationAddress', this.value)"
+          value="${currentTrip.destinationAddress}"
+          placeholder="Street, City"
+        />
 
-        <label for="tripDate">Trip date</label>
-        <input id="tripDate" type="date" value="${currentTrip.tripDate}"
+        <label>Date of trip</label>
+        <input type="date" value="${currentTrip.tripDate}"
           oninput="updateTripField('tripDate', this.value)" />
 
-        <label for="meetTime">Meet time</label>
-        <input id="meetTime" type="time" value="${currentTrip.meetTime}"
+        <label>Meet time</label>
+        <input type="time" value="${currentTrip.meetTime}"
           oninput="updateTripField('meetTime', this.value)" />
 
         <button class="btn-primary" onclick="goTo('mapsInstructions')">
-          Go to Step 2 — Google Maps
+          Go to Step 2 - Google Maps steps
         </button>
 
-        <button class="btn-secondary" onclick="goTo('home')">
-          Back to Home
-        </button>
+        <button class="btn-secondary" onclick="goTo('home')">Back</button>
       </section>
     `;
   }
 
-  // ---------------- STEP 2 — GOOGLE MAPS ----------------
+  // ---------------- STEP 2 MAP INSTRUCTIONS ----------------
   else if (currentScreen === "mapsInstructions") {
     app.innerHTML = `
       <section class="screen">
-        <h2>Step 2 — Use Google Maps</h2>
+        <h2>Step 2 - Google Maps</h2>
 
         <ol class="step-list">
-          <li>Check that Step 1 information is correct.</li>
-          <li>Tap the button below to open Google Maps.</li>
-          <li>Select the best bus route based on:
-            <ul>
-              <li>Arrival time</li>
-              <li>Transfers</li>
-              <li>Ease of following</li>
-            </ul>
-          </li>
-          <li>Write down all route details.</li>
-          <li>Return here and continue to Step 3.</li>
+          <li>Check your destination from Step 1.</li>
+          <li>Tap below to open Google Maps in transit mode.</li>
+          <li>Review the routes and pick the best one.</li>
+          <li>Write down the route details.</li>
         </ol>
 
         <button class="btn-primary" onclick="openMapsForCurrentTrip()">
-          Open Google Maps (Transit)
+          Open in Google Maps
         </button>
 
         <button class="btn-primary" onclick="goTo('routeDetails')">
-          Go to Step 3 — Route details
+          Go to Step 3 - Route details
         </button>
 
         <button class="btn-secondary" onclick="goTo('planDestination')">
-          Back to Step 1
+          Back
         </button>
       </section>
     `;
   }
 
-  // ---------------- STEP 3 — ROUTE DETAILS ----------------
+  // ---------------- STEP 3 ROUTE DETAILS ----------------
   else if (currentScreen === "routeDetails") {
     const r = currentTrip.routeThere;
     const rb = currentTrip.routeBack;
 
     app.innerHTML = `
       <section class="screen">
-        <h2>Step 3 — Route details</h2>
+        <h2>Step 3 - Route details</h2>
 
-        <h3 class="section-title">Route there</h3>
-
+        <h3>Route there</h3>
         <label>Bus number</label>
-        <input type="text" value="${r.busNumber}"
-          oninput="updateRouteThereField('busNumber', this.value)" />
+        <input value="${r.busNumber}" oninput="updateRouteThereField('busNumber', this.value)" />
 
         <label>Direction</label>
-        <input type="text" value="${r.direction}"
-          oninput="updateRouteThereField('direction', this.value)" />
+        <input value="${r.direction}" oninput="updateRouteThereField('direction', this.value)" />
 
         <label>Stop where you get on</label>
-        <input type="text" value="${r.boardStop}"
-          oninput="updateRouteThereField('boardStop', this.value)" />
+        <input value="${r.boardStop}" oninput="updateRouteThereField('boardStop', this.value)" />
 
         <label>Stop where you get off</label>
-        <input type="text" value="${r.exitStop}"
-          oninput="updateRouteThereField('exitStop', this.value)" />
+        <input value="${r.exitStop}" oninput="updateRouteThereField('exitStop', this.value)" />
 
         <label>Departure time</label>
-        <input type="text" value="${r.departTime}"
-          oninput="updateRouteThereField('departTime', this.value)" />
+        <input value="${r.departTime}" oninput="updateRouteThereField('departTime', this.value)" />
 
         <label>Arrival time</label>
-        <input type="text" value="${r.arriveTime}"
-          oninput="updateRouteThereField('arriveTime', this.value)" />
+        <input value="${r.arriveTime}" oninput="updateRouteThereField('arriveTime', this.value)" />
 
         <label>Total travel time</label>
-        <input type="text" value="${r.totalTime}"
-          oninput="updateRouteThereField('totalTime', this.value)" />
+        <input value="${r.totalTime}" oninput="updateRouteThereField('totalTime', this.value)" />
 
-        <h3 class="section-title" style="margin-top:24px;">Route back</h3>
-
+        <h3>Route back</h3>
         <label>Bus number</label>
-        <input type="text" value="${rb.busNumber}"
-          oninput="updateRouteBackField('busNumber', this.value)" />
+        <input value="${rb.busNumber}" oninput="updateRouteBackField('busNumber', this.value)" />
 
         <label>Direction</label>
-        <input type="text" value="${rb.direction}"
-          oninput="updateRouteBackField('direction', this.value)" />
+        <input value="${rb.direction}" oninput="updateRouteBackField('direction', this.value)" />
 
         <label>Stop where you get on</label>
-        <input type="text" value="${rb.boardStop}"
-          oninput="updateRouteBackField('boardStop', this.value)" />
+        <input value="${rb.boardStop}" oninput="updateRouteBackField('boardStop', this.value)" />
 
         <label>Stop where you get off</label>
-        <input type="text" value="${rb.exitStop}"
-          oninput="updateRouteBackField('exitStop', this.value)" />
+        <input value="${rb.exitStop}" oninput="updateRouteBackField('exitStop', this.value)" />
 
         <label>Departure time</label>
-        <input type="text" value="${rb.departTime}"
-          oninput="updateRouteBackField('departTime', this.value)" />
+        <input value="${rb.departTime}" oninput="updateRouteBackField('departTime', this.value)" />
 
         <label>Arrival time</label>
-        <input type="text" value="${rb.arriveTime}"
-          oninput="updateRouteBackField('arriveTime', this.value)" />
+        <input value="${rb.arriveTime}" oninput="updateRouteBackField('arriveTime', this.value)" />
 
         <label>Total travel time</label>
-        <input type="text" value="${rb.totalTime}"
-          oninput="updateRouteBackField('totalTime', this.value)" />
-
-        <h3 class="section-title" style="margin-top:24px;">Step 4 — Why are we going?</h3>
-        ${renderPurposeChecklist()}
+        <input value="${rb.totalTime}" oninput="updateRouteBackField('totalTime', this.value)" />
 
         <button class="btn-primary" onclick="goTo('summary')">
-          View Trip summary
+          View trip summary
         </button>
 
-        <button class="btn-secondary" onclick="goTo('mapsInstructions')">
-          Back to Step 2
-        </button>
+        <button class="btn-secondary" onclick="goTo('mapsInstructions')">Back</button>
       </section>
     `;
   }
 
-  // ---------------- WEATHER ----------------
+  // ---------------- WEATHER SCREEN ----------------
   else if (currentScreen === "weather") {
     const w = currentTrip.weather;
 
@@ -444,27 +391,28 @@ function render() {
       <section class="screen">
         <h2>Check Weather for Your Trip</h2>
 
-        <label for="weatherCity">City or destination</label>
-        <input id="weatherCity" type="text"
-          value="${w.city || currentTrip.destinationAddress || ""}"
-          placeholder="Example: Anaheim, CA" />
+        <label>City or destination</label>
+        <input
+          id="weatherCity"
+          type="text"
+          placeholder="Example: Anaheim"
+          value="${w.city || ""}"
+        />
 
         <button class="btn-primary" onclick="lookupWeather()">
           Look up weather
         </button>
 
-        <div id="weatherResults" style="margin-top:16px;"></div>
+        <div id="weatherResults"></div>
 
-        <label for="weatherBring" style="margin-top:20px;">
-          Based on this weather, what will you bring?
-        </label>
-        <textarea id="weatherBring"
-          placeholder="Example: jacket, umbrella, water, bus pass"
-          oninput="updateWeatherWhatToBring(this.value)">${w.whatToBring || ""}</textarea>
+        <label style="margin-top:20px;">Based on this weather, what will you bring?</label>
+        <textarea
+          id="weatherBring"
+          placeholder="Example: jacket, umbrella, water"
+          oninput="updateWeatherWhatToBring(this.value)"
+        >${w.whatToBring || ""}</textarea>
 
-        <button class="btn-secondary" onclick="goTo('home')">
-          Back to Home
-        </button>
+        <button class="btn-secondary" onclick="goTo('home')">Back</button>
       </section>
     `;
   }
@@ -473,7 +421,7 @@ function render() {
   else if (currentScreen === "summary") {
     const r = currentTrip.routeThere;
     const rb = currentTrip.routeBack;
-    const pList = renderPurposeSummaryList();
+    const pHtml = renderPurposeSummaryList();
     const w = currentTrip.weather;
 
     app.innerHTML = `
@@ -483,60 +431,49 @@ function render() {
         <div class="summary-grid">
           <article class="summary-card">
             <h4>Trip basics</h4>
-            <div class="summary-row"><span>Destination:</span> <span>${currentTrip.destinationName || "-"}</span></div>
-            <div class="summary-row"><span>Address:</span> <span>${currentTrip.destinationAddress || "-"}</span></div>
-            <div class="summary-row"><span>Date:</span> <span>${currentTrip.tripDate || "-"}</span></div>
-            <div class="summary-row"><span>Meet time:</span> <span>${currentTrip.meetTime || "-"}</span></div>
+            <p>Destination: ${currentTrip.destinationName || "-"}</p>
+            <p>Address: ${currentTrip.destinationAddress || "-"}</p>
+            <p>Date: ${currentTrip.tripDate || "-"}</p>
+            <p>Meet time: ${currentTrip.meetTime || "-"}</p>
           </article>
 
           <article class="summary-card">
             <h4>Route there</h4>
-            <div class="summary-row"><span>Bus #:</span> <span>${r.busNumber || "-"}</span></div>
-            <div class="summary-row"><span>Direction:</span> <span>${r.direction || "-"}</span></div>
-            <div class="summary-row"><span>Get on at:</span> <span>${r.boardStop || "-"}</span></div>
-            <div class="summary-row"><span>Get off at:</span> <span>${r.exitStop || "-"}</span></div>
-            <div class="summary-row"><span>Depart:</span> <span>${r.departTime || "-"}</span></div>
-            <div class="summary-row"><span>Arrive:</span> <span>${r.arriveTime || "-"}</span></div>
-            <div class="summary-row"><span>Total time:</span> <span>${r.totalTime || "-"}</span></div>
+            <p>Bus: ${r.busNumber || "-"}</p>
+            <p>Direction: ${r.direction || "-"}</p>
+            <p>Get on: ${r.boardStop || "-"}</p>
+            <p>Get off: ${r.exitStop || "-"}</p>
+            <p>Depart: ${r.departTime || "-"}</p>
+            <p>Arrive: ${r.arriveTime || "-"}</p>
+            <p>Total: ${r.totalTime || "-"}</p>
           </article>
 
           <article class="summary-card">
             <h4>Route back</h4>
-            <div class="summary-row"><span>Bus #:</span> <span>${rb.busNumber || "-"}</span></div>
-            <div class="summary-row"><span>Direction:</span> <span>${rb.direction || "-"}</span></div>
-            <div class="summary-row"><span>Get on at:</span> <span>${rb.boardStop || "-"}</span></div>
-            <div class="summary-row"><span>Get off at:</span> <span>${rb.exitStop || "-"}</span></div>
-            <div class="summary-row"><span>Depart:</span> <span>${rb.departTime || "-"}</span></div>
-            <div class="summary-row"><span>Arrive:</span> <span>${rb.arriveTime || "-"}</span></div>
-            <div class="summary-row"><span>Total time:</span> <span>${rb.totalTime || "-"}</span></div>
+            <p>Bus: ${rb.busNumber || "-"}</p>
+            <p>Direction: ${rb.direction || "-"}</p>
+            <p>Get on: ${rb.boardStop || "-"}</p>
+            <p>Get off: ${rb.exitStop || "-"}</p>
+            <p>Depart: ${rb.departTime || "-"}</p>
+            <p>Arrive: ${rb.arriveTime || "-"}</p>
+            <p>Total: ${rb.totalTime || "-"}</p>
           </article>
 
           <article class="summary-card">
-            <h4>Why are we going?</h4>
-            <ul class="summary-list">${pList}</ul>
+            <h4>Purposes</h4>
+            <ul>${pHtml}</ul>
           </article>
 
           <article class="summary-card">
-            <h4>Weather & Packing</h4>
-            <div class="summary-row"><span>City:</span> <span>${w.city || "-"}</span></div>
-            <div class="summary-row"><span>Conditions:</span> <span>${w.description || "-"}</span></div>
-            <div class="summary-row"><span>Temperature:</span> <span>${w.tempF != null ? `${w.tempF}°F` : "-"}</span></div>
-            <div class="summary-row" style="margin-top:8px; flex-direction:column; align-items:flex-start;">
-              <strong>Student plan — What to bring:</strong>
-              <span>${w.whatToBring || "Not filled in yet."}</span>
-            </div>
+            <h4>Weather</h4>
+            <p>City: ${w.city || "-"}</p>
+            <p>Conditions: ${w.description || "-"}</p>
+            <p>Temperature: ${w.tempF != null ? w.tempF + "°F" : "-"}</p>
+            <p><strong>Student plan:</strong> ${w.whatToBring || "-"}</p>
           </article>
         </div>
 
-        <button class="btn-primary" onclick="goTo('planDestination')">
-          Edit Step 1
-        </button>
-        <button class="btn-secondary" onclick="goTo('routeDetails')">
-          Edit Step 3
-        </button>
-        <button class="btn-secondary" onclick="goTo('weather')">
-          Edit Weather
-        </button>
+        <button class="btn-secondary" onclick="goTo('home')">Back to Home</button>
       </section>
     `;
   }
@@ -545,62 +482,35 @@ function render() {
   else if (currentScreen === "practice") {
     app.innerHTML = `
       <section class="screen">
-        <h2>Practice using Maps</h2>
-
-        <p>
-          You can practice reading maps, finding bus routes,
-          and taking notes here before doing a real CBI trip.
-        </p>
-
-        <button class="btn-secondary" onclick="goTo('home')">
-          Back to Home
-        </button>
+        <h2>Practice using maps</h2>
+        <p>Try planning a pretend trip to build confidence.</p>
+        <button class="btn-secondary" onclick="goTo('home')">Back</button>
       </section>
     `;
   }
 }
 
 // =========================================================
-// SIDEBAR HIGHLIGHTING
+// SIDEBAR HIGHLIGHT
 // =========================================================
-
 function highlightSidebar(screenName) {
   const items = document.querySelectorAll(".sidebar-item");
-  items.forEach(item => {
-    const target = item.getAttribute("data-screen");
-    if (target === screenName) {
-      item.classList.add("active");
-      item.setAttribute("aria-current", "page");
-    } else {
-      item.classList.remove("active");
-      item.removeAttribute("aria-current");
-    }
+  items.forEach(btn => {
+    const target = btn.getAttribute("data-screen");
+    btn.classList.toggle("active", target === screenName);
   });
 }
 
 // =========================================================
-// INITIALIZE APP
+// INITIAL LOAD
 // =========================================================
-
 document.addEventListener("DOMContentLoaded", () => {
   render();
   highlightSidebar(currentScreen);
 
-  // Sidebar navigation
-  const items = document.querySelectorAll(".sidebar-item");
-  items.forEach(item => {
+  // Sidebar click navigation
+  document.querySelectorAll(".sidebar-item").forEach(item => {
     const screen = item.getAttribute("data-screen");
-
-    item.addEventListener("click", () => {
-      if (screen) goTo(screen);
-    });
-
-    // Hover glow effect
-    item.addEventListener("mousemove", e => {
-      const rect = item.getBoundingClientRect();
-      item.style.setProperty("--x", `${e.clientX - rect.left}px`);
-      item.style.setProperty("--y", `${e.clientY - rect.top}px`);
-    });
+    item.addEventListener("click", () => goTo(screen));
   });
 });
-vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
