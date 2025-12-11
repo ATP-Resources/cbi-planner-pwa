@@ -188,37 +188,52 @@ async function lookupWeather() {
   resultsDiv.innerHTML = "Loading weather...";
 
   try {
-    const url = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(
+    // Use simpler "current weather" endpoint
+    const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
       city
     )}&units=imperial&appid=${WEATHER_API_KEY}`;
 
     const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error("Weather lookup failed");
+      // Try to read error message from API
+      let message = `Weather lookup failed (status ${response.status}).`;
+      try {
+        const errorData = await response.json();
+        if (errorData && errorData.message) {
+          message += ` ${errorData.message}`;
+        }
+      } catch (e) {
+        // ignore JSON parse error
+      }
+      resultsDiv.innerHTML = message;
+      return;
     }
 
     const data = await response.json();
 
-    if (!data.list || !data.list.length) {
-      resultsDiv.innerHTML = "No forecast found for that location.";
+    if (!data.main || !data.weather || !data.weather.length) {
+      resultsDiv.innerHTML = "No weather data found for that location.";
       return;
     }
 
-    // Use the first forecast block as a simple estimate
-    const first = data.list[0];
+    const temp = Math.round(data.main.temp);
+    const feels = Math.round(data.main.feels_like);
+    const description = data.weather[0].description;
 
-    const temp = Math.round(first.main.temp);
-    const feels = Math.round(first.main.feels_like);
-    const description = first.weather[0].description;
-    const pop = Math.round((first.pop || 0) * 100);
+    // This endpoint does not give a percent chance of rain.
+    // You can use this as a reading discussion instead.
+    const popText =
+      data.weather[0].main === "Rain" || data.weather[0].main === "Drizzle"
+        ? "Rain is happening or very likely now."
+        : "No rain reported right now.";
 
     // Save into trip state so teacher can see later
     currentTrip.weather.city = city;
     currentTrip.weather.tempF = temp;
     currentTrip.weather.feelsLikeF = feels;
     currentTrip.weather.description = description;
-    currentTrip.weather.pop = pop;
+    currentTrip.weather.pop = null;
 
     resultsDiv.innerHTML = `
       <div class="summary-card">
@@ -232,8 +247,8 @@ async function lookupWeather() {
           <span class="summary-value">${temp}°F (feels like ${feels}°F)</span>
         </div>
         <div class="summary-row">
-          <span class="summary-label">Chance of rain:</span>
-          <span class="summary-value">${pop}%</span>
+          <span class="summary-label">Rain note:</span>
+          <span class="summary-value">${popText}</span>
         </div>
         <p class="weather-note">
           Use this information to decide what you should bring on your CBI trip.
@@ -787,12 +802,6 @@ function render() {
                 w.tempF != null ? `${w.tempF}°F` : "-"
               }</span>
             </div>
-            <div class="summary-row">
-              <span class="summary-label">Chance of rain:</span>
-              <span class="summary-value">${
-                w.pop != null ? `${w.pop}%` : "-"
-              }</span>
-            </div>
             <div style="margin-top:8px; font-size:14px; color:#244b55;">
               <strong>Student plan - what to bring:</strong><br />
               ${w.whatToBring ? w.whatToBring : "Not filled in yet."}
@@ -860,7 +869,7 @@ function render() {
 }
 
 // =========================================================
-/* SIDEBAR HIGHLIGHT AND INTERACTION */
+// SIDEBAR HIGHLIGHT AND INTERACTION
 // =========================================================
 
 function highlightSidebar(screenName) {
