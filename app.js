@@ -3,61 +3,63 @@
 // Standard JS, student focused, teacher friendly
 // =========================================================
 
+// Create a brand-new empty trip object
+function createEmptyTrip() {
+  return {
+    // Step 1 - basic info
+    destinationName: "",
+    destinationAddress: "",
+    tripDate: "",
+    meetTime: "",
+
+    // Step 3 - route there
+    routeThere: {
+      busNumber: "",
+      direction: "",
+      boardStop: "",
+      exitStop: "",
+      departTime: "",
+      arriveTime: "",
+      totalTime: ""
+    },
+
+    // Step 3 - route back
+    routeBack: {
+      busNumber: "",
+      direction: "",
+      boardStop: "",
+      exitStop: "",
+      departTime: "",
+      arriveTime: "",
+      totalTime: ""
+    },
+
+    // Step 4 - purpose of trip
+    purpose: {
+      lifeSkills: false,
+      communityAccess: false,
+      moneySkills: false,
+      communication: false,
+      socialSkills: false,
+      employmentPrep: false,
+      recreationLeisure: false,
+      safetySkills: false,
+      otherText: ""
+    },
+
+    // Weather notes - students interpret weather themselves
+    weather: {
+      city: "",
+      whatToBring: ""
+    }
+  };
+}
+
 // Current screen name
 let currentScreen = "home";
 
 // Main trip state for the current student
-const emptyTrip = {
-  // Step 1 - basic info
-  destinationName: "",
-  destinationAddress: "",
-  tripDate: "",
-  meetTime: "",
-
-  // Step 3 - route there
-  routeThere: {
-    busNumber: "",
-    direction: "",
-    boardStop: "",
-    exitStop: "",
-    departTime: "",
-    arriveTime: "",
-    totalTime: ""
-  },
-
-  // Step 3 - route back
-  routeBack: {
-    busNumber: "",
-    direction: "",
-    boardStop: "",
-    exitStop: "",
-    departTime: "",
-    arriveTime: "",
-    totalTime: ""
-  },
-
-  // Step 4 - purpose of trip
-  purpose: {
-    lifeSkills: false,
-    communityAccess: false,
-    moneySkills: false,
-    communication: false,
-    socialSkills: false,
-    employmentPrep: false,
-    recreationLeisure: false,
-    safetySkills: false,
-    otherText: ""
-  },
-
-  // Weather notes - students interpret weather themselves
-  weather: {
-    city: "",
-    whatToBring: ""
-  }
-};
-
-// Make a working copy we can reset
-const currentTrip = JSON.parse(JSON.stringify(emptyTrip));
+let currentTrip = createEmptyTrip();
 
 // =========================================================
 // HELPER FUNCTIONS TO UPDATE STATE
@@ -83,28 +85,18 @@ function updatePurposeOther(value) {
   currentTrip.purpose.otherText = value;
 }
 
-function updateWeatherCity(value) {
-  currentTrip.weather.city = value;
-}
-
 function updateWeatherWhatToBring(value) {
   currentTrip.weather.whatToBring = value;
 }
 
-// Reset the whole trip to blank
-function clearTrip() {
-  const confirmed = window.confirm(
-    "Clear all trip information and start over?"
-  );
-  if (!confirmed) return;
+// Clear the whole trip
+function clearCurrentTrip() {
+  const ok = window.confirm("Clear all information for this CBI trip?");
+  if (!ok) return;
 
-  const fresh = JSON.parse(JSON.stringify(emptyTrip));
-
-  Object.keys(currentTrip).forEach(key => {
-    currentTrip[key] = fresh[key];
-  });
-
-  goTo("home");
+  currentTrip = createEmptyTrip();
+  render();
+  highlightSidebar(currentScreen);
 }
 
 // =========================================================
@@ -124,41 +116,6 @@ function openMapsForCurrentTrip() {
   const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
     origin
   )}&destination=${encodeURIComponent(destination)}&travelmode=transit`;
-
-  window.open(url, "_blank");
-}
-
-// =========================================================
-– EXTERNAL WEATHER SITES
-// Students click a logo, site opens in a new tab
-// =========================================================
-
-function openAccuWeather() {
-  const cityInput = document.getElementById("weatherCity");
-  const city = cityInput ? cityInput.value.trim() : "";
-
-  // Basic search URL
-  let url = "https://www.accuweather.com/";
-  if (city) {
-    url = `https://www.accuweather.com/en/search-locations?query=${encodeURIComponent(
-      city
-    )}`;
-  }
-
-  window.open(url, "_blank");
-}
-
-function openWeatherChannel() {
-  const cityInput = document.getElementById("weatherCity");
-  const city = cityInput ? cityInput.value.trim() : "";
-
-  // Basic search URL
-  let url = "https://weather.com/";
-  if (city) {
-    url = `https://weather.com/weather/search/?where=${encodeURIComponent(
-      city
-    )}`;
-  }
 
   window.open(url, "_blank");
 }
@@ -208,6 +165,50 @@ function renderPurposeSummaryList() {
 }
 
 // =========================================================
+// WEATHER LINKS (no API)
+// Students type a city, then pick a website
+// =========================================================
+
+function openWeatherSite(site) {
+  const cityInput = document.getElementById("weatherCity");
+
+  let city = cityInput ? cityInput.value.trim() : "";
+
+  // If input is empty, try destination info as a fallback
+  if (!city) {
+    if (currentTrip.destinationAddress) {
+      city = currentTrip.destinationAddress;
+    } else if (currentTrip.destinationName) {
+      city = currentTrip.destinationName;
+    }
+  }
+
+  if (!city) {
+    alert("Type a city or destination first.");
+    return;
+  }
+
+  // Save to state so it shows up in summary
+  currentTrip.weather.city = city;
+
+  let url = "";
+
+  if (site === "accuweather") {
+    url = `https://www.accuweather.com/en/search-locations?query=${encodeURIComponent(
+      city
+    )}`;
+  } else if (site === "weathercom") {
+    url = `https://weather.com/search/enhancedlocalsearch?where=${encodeURIComponent(
+      city
+    )}`;
+  } else {
+    return;
+  }
+
+  window.open(url, "_blank", "noopener");
+}
+
+// =========================================================
 // SCREEN RENDERING
 // Renders the correct screen into the #app container
 // =========================================================
@@ -245,8 +246,8 @@ function render() {
           Practice using Google Maps first
         </button>
 
-        <button class="btn-secondary" type="button" style="margin-top: 20px;" onclick="clearTrip()">
-          Clear trip
+        <button class="btn-secondary btn-clear-trip" type="button" onclick="clearCurrentTrip()">
+          Clear current trip
         </button>
       </section>
     `;
@@ -597,7 +598,7 @@ function render() {
     app.innerHTML = `
       <section class="screen" aria-labelledby="weatherTitle">
         <h2 id="weatherTitle">Check Weather for Your Trip</h2>
-        <p>Use this screen to plan where you will check the weather.</p>
+        <p>Type a city, then choose a website. Use the weather information to decide what you will bring.</p>
 
         <label for="weatherCity">City or destination</label>
         <input
@@ -606,36 +607,38 @@ function render() {
           placeholder="Example: Anaheim"
           autocomplete="off"
           value="${w.city || ""}"
-          oninput="updateWeatherCity(this.value)"
         />
 
-        <p style="margin-top:16px;">
-          Click one of the weather sites below. A new tab will open.
-          Type your city there and read the forecast.
-        </p>
-
-        <div class="summary-grid" style="margin-top:12px;">
-          <div class="summary-card" style="text-align:center; cursor:pointer;" onclick="openAccuWeather()">
+        <div class="weather-links-row">
+          <button
+            type="button"
+            class="weather-logo-card"
+            onclick="openWeatherSite('accuweather')"
+          >
             <img
               src="img/accuweather-logo.png"
-              alt="AccuWeather"
-              style="max-width:160px; height:auto; display:block; margin:0 auto 8px auto;"
+              alt="AccuWeather logo"
+              class="weather-logo-img"
             />
-            <div style="font-weight:600; color:#064f58;">Open AccuWeather</div>
-          </div>
+            <span>Open AccuWeather</span>
+          </button>
 
-          <div class="summary-card" style="text-align:center; cursor:pointer;" onclick="openWeatherChannel()">
+          <button
+            type="button"
+            class="weather-logo-card"
+            onclick="openWeatherSite('weathercom')"
+          >
             <img
               src="img/weather-channel-logo.png"
-              alt="The Weather Channel"
-              style="max-width:160px; height:auto; display:block; margin:0 auto 8px auto;"
+              alt="The Weather Channel logo"
+              class="weather-logo-img"
             />
-            <div style="font-weight:600; color:#064f58;">Open The Weather Channel</div>
-          </div>
+            <span>Open Weather Channel</span>
+          </button>
         </div>
 
         <label for="weatherBring" style="margin-top:20px;">
-          Based on the forecast, what will you bring?
+          Based on this weather, what will you bring?
         </label>
         <textarea
           id="weatherBring"
@@ -849,9 +852,11 @@ function highlightSidebar(screenName) {
 // =========================================================
 
 document.addEventListener("DOMContentLoaded", () => {
+  // First render
   render();
   highlightSidebar(currentScreen);
 
+  // Wire sidebar buttons to navigation
   const sidebarItems = document.querySelectorAll(".sidebar-item");
   sidebarItems.forEach(item => {
     const screen = item.getAttribute("data-screen");
@@ -862,6 +867,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
+    // Mouse move glow for fun but not required
     item.addEventListener("mousemove", event => {
       const rect = item.getBoundingClientRect();
       const x = event.clientX - rect.left;
