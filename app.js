@@ -49,9 +49,14 @@ const currentTrip = {
     otherText: ""
   },
 
-  // Weather notes, student fills this in after checking an external site
+  // Weather notes - students interpret weather themselves
   weather: {
-    notes: ""
+    city: "",
+    tempF: null,
+    feelsLikeF: null,
+    description: "",
+    pop: null,
+    whatToBring: ""
   }
 };
 
@@ -79,12 +84,16 @@ function updatePurposeOther(value) {
   currentTrip.purpose.otherText = value;
 }
 
-function updateWeatherNotes(value) {
-  currentTrip.weather.notes = value;
+function updateWeatherCity(value) {
+  currentTrip.weather.city = value;
 }
 
-// Clear the current trip and start over
-function clearCurrentTrip() {
+function updateWeatherWhatToBring(value) {
+  currentTrip.weather.whatToBring = value;
+}
+
+// Reset all trip fields
+function resetCurrentTrip() {
   currentTrip.destinationName = "";
   currentTrip.destinationAddress = "";
   currentTrip.tripDate = "";
@@ -123,15 +132,31 @@ function clearCurrentTrip() {
   };
 
   currentTrip.weather = {
-    notes: ""
+    city: "",
+    tempF: null,
+    feelsLikeF: null,
+    description: "",
+    pop: null,
+    whatToBring: ""
   };
+}
 
-  goTo("home");
+// Clear trip button handler
+function clearTrip() {
+  const ok = window.confirm(
+    "Are you sure you want to clear this trip? This will erase everything you typed."
+  );
+  if (!ok) {
+    return;
+  }
+  resetCurrentTrip();
+  render();
+  highlightSidebar(currentScreen);
 }
 
 // =========================================================
-/* GOOGLE MAPS INTEGRATION
-   Opens transit directions only, students still copy details */
+// GOOGLE MAPS INTEGRATION
+// Opens transit directions only - students still copy details
 // =========================================================
 
 function openMapsForCurrentTrip() {
@@ -151,18 +176,7 @@ function openMapsForCurrentTrip() {
 }
 
 // =========================================================
-// WEATHER LINK
-// Opens an external weather website in a new tab
-// =========================================================
-
-function openWeatherSite() {
-  // You can change this to your preferred site
-  const url = "https://www.weather.com/";
-  window.open(url, "_blank");
-}
-
-// =========================================================
-// PURPOSE SUMMARY BUILDER
+/* PURPOSE SUMMARY BUILDER */
 // Used in the Trip Summary screen
 // =========================================================
 
@@ -241,6 +255,10 @@ function render() {
 
         <button class="btn-secondary" type="button" onclick="goTo('practice')">
           Practice using Google Maps first
+        </button>
+
+        <button class="btn-secondary btn-clear" type="button" onclick="clearTrip()">
+          Clear this trip
         </button>
       </section>
     `;
@@ -591,24 +609,60 @@ function render() {
     app.innerHTML = `
       <section class="screen" aria-labelledby="weatherTitle">
         <h2 id="weatherTitle">Check Weather for Your Trip</h2>
-        <p>
-          Use this button to open a weather website in a new tab.
-          Type your city on that site, read the forecast,
-          then come back and write what you will bring.
+        <p>Use this screen to look up the weather for your CBI destination.</p>
+
+        <label for="weatherCity">City or destination</label>
+        <input
+          id="weatherCity"
+          type="text"
+          placeholder="Example: Anaheim"
+          autocomplete="off"
+          value="${w.city || ""}"
+          oninput="updateWeatherCity(this.value)"
+        />
+
+        <p class="small-note">
+          Step 1: Type your city for the record.  
+          Step 2: Click a weather website below. It will open in a new tab.  
+          Step 3: Read the forecast, then come back and type what you will bring.
         </p>
 
-        <button class="btn-primary" type="button" onclick="openWeatherSite()">
-          Open weather website
-        </button>
+        <div class="weather-links">
+          <a
+            href="https://www.accuweather.com/"
+            target="_blank"
+            rel="noopener"
+            class="weather-link"
+          >
+            <img
+              src="img/accuweather-logo.png"
+              alt="Open AccuWeather in a new tab"
+              class="weather-logo"
+            />
+          </a>
 
-        <label for="weatherNotes" style="margin-top:20px;">
-          Based on the weather, what will you bring?
+          <a
+            href="https://weather.com/"
+            target="_blank"
+            rel="noopener"
+            class="weather-link"
+          >
+            <img
+              src="img/weather-channel-logo.png"
+              alt="Open The Weather Channel in a new tab"
+              class="weather-logo"
+            />
+          </a>
+        </div>
+
+        <label for="weatherBring" style="margin-top:20px;">
+          Based on this weather, what will you bring?
         </label>
         <textarea
-          id="weatherNotes"
+          id="weatherBring"
           placeholder="Example: jacket, umbrella, water, bus pass"
-          oninput="updateWeatherNotes(this.value)"
-        >${w.notes || ""}</textarea>
+          oninput="updateWeatherWhatToBring(this.value)"
+        >${w.whatToBring || ""}</textarea>
 
         <button class="btn-secondary" type="button" onclick="goTo('home')">
           Back to Home
@@ -723,9 +777,13 @@ function render() {
 
           <article class="summary-card">
             <h4>Weather and packing</h4>
+            <div class="summary-row">
+              <span class="summary-label">City looked up:</span>
+              <span class="summary-value">${w.city || "-"}</span>
+            </div>
             <div style="margin-top:8px; font-size:14px; color:#244b55;">
-              <strong>Student plan, what to bring:</strong><br />
-              ${w.notes ? w.notes : "Not filled in yet."}
+              <strong>Student plan - what to bring:</strong><br />
+              ${w.whatToBring ? w.whatToBring : "Not filled in yet."}
             </div>
           </article>
         </div>
@@ -740,10 +798,6 @@ function render() {
 
         <button class="btn-secondary" type="button" onclick="goTo('weather')">
           Edit weather and packing
-        </button>
-
-        <button class="btn-secondary" type="button" onclick="clearCurrentTrip()">
-          Clear this trip and start over
         </button>
       </section>
     `;
@@ -760,7 +814,7 @@ function render() {
         </p>
 
         <p class="small-note">
-          Idea, students can write in a paper reflection or a Google Form,
+          Idea: Students can write in a paper reflection or a Google Form,
           then you can later connect that data to this screen.
         </p>
 
