@@ -7,7 +7,7 @@
 let currentScreen = "home";
 
 // Main trip state for the current student
-const currentTrip = {
+const emptyTrip = {
   // Step 1 - basic info
   destinationName: "",
   destinationAddress: "",
@@ -52,13 +52,12 @@ const currentTrip = {
   // Weather notes - students interpret weather themselves
   weather: {
     city: "",
-    tempF: null,
-    feelsLikeF: null,
-    description: "",
-    pop: null,
     whatToBring: ""
   }
 };
+
+// Make a working copy we can reset
+const currentTrip = JSON.parse(JSON.stringify(emptyTrip));
 
 // =========================================================
 // HELPER FUNCTIONS TO UPDATE STATE
@@ -92,66 +91,20 @@ function updateWeatherWhatToBring(value) {
   currentTrip.weather.whatToBring = value;
 }
 
-// Reset all trip fields
-function resetCurrentTrip() {
-  currentTrip.destinationName = "";
-  currentTrip.destinationAddress = "";
-  currentTrip.tripDate = "";
-  currentTrip.meetTime = "";
-
-  currentTrip.routeThere = {
-    busNumber: "",
-    direction: "",
-    boardStop: "",
-    exitStop: "",
-    departTime: "",
-    arriveTime: "",
-    totalTime: ""
-  };
-
-  currentTrip.routeBack = {
-    busNumber: "",
-    direction: "",
-    boardStop: "",
-    exitStop: "",
-    departTime: "",
-    arriveTime: "",
-    totalTime: ""
-  };
-
-  currentTrip.purpose = {
-    lifeSkills: false,
-    communityAccess: false,
-    moneySkills: false,
-    communication: false,
-    socialSkills: false,
-    employmentPrep: false,
-    recreationLeisure: false,
-    safetySkills: false,
-    otherText: ""
-  };
-
-  currentTrip.weather = {
-    city: "",
-    tempF: null,
-    feelsLikeF: null,
-    description: "",
-    pop: null,
-    whatToBring: ""
-  };
-}
-
-// Clear trip button handler
+// Reset the whole trip to blank
 function clearTrip() {
-  const ok = window.confirm(
-    "Are you sure you want to clear this trip? This will erase everything you typed."
+  const confirmed = window.confirm(
+    "Clear all trip information and start over?"
   );
-  if (!ok) {
-    return;
-  }
-  resetCurrentTrip();
-  render();
-  highlightSidebar(currentScreen);
+  if (!confirmed) return;
+
+  const fresh = JSON.parse(JSON.stringify(emptyTrip));
+
+  Object.keys(currentTrip).forEach(key => {
+    currentTrip[key] = fresh[key];
+  });
+
+  goTo("home");
 }
 
 // =========================================================
@@ -176,7 +129,42 @@ function openMapsForCurrentTrip() {
 }
 
 // =========================================================
-/* PURPOSE SUMMARY BUILDER */
+– EXTERNAL WEATHER SITES
+// Students click a logo, site opens in a new tab
+// =========================================================
+
+function openAccuWeather() {
+  const cityInput = document.getElementById("weatherCity");
+  const city = cityInput ? cityInput.value.trim() : "";
+
+  // Basic search URL
+  let url = "https://www.accuweather.com/";
+  if (city) {
+    url = `https://www.accuweather.com/en/search-locations?query=${encodeURIComponent(
+      city
+    )}`;
+  }
+
+  window.open(url, "_blank");
+}
+
+function openWeatherChannel() {
+  const cityInput = document.getElementById("weatherCity");
+  const city = cityInput ? cityInput.value.trim() : "";
+
+  // Basic search URL
+  let url = "https://weather.com/";
+  if (city) {
+    url = `https://weather.com/weather/search/?where=${encodeURIComponent(
+      city
+    )}`;
+  }
+
+  window.open(url, "_blank");
+}
+
+// =========================================================
+// PURPOSE SUMMARY BUILDER
 // Used in the Trip Summary screen
 // =========================================================
 
@@ -257,8 +245,8 @@ function render() {
           Practice using Google Maps first
         </button>
 
-        <button class="btn-secondary btn-clear" type="button" onclick="clearTrip()">
-          Clear this trip
+        <button class="btn-secondary" type="button" style="margin-top: 20px;" onclick="clearTrip()">
+          Clear trip
         </button>
       </section>
     `;
@@ -609,7 +597,7 @@ function render() {
     app.innerHTML = `
       <section class="screen" aria-labelledby="weatherTitle">
         <h2 id="weatherTitle">Check Weather for Your Trip</h2>
-        <p>Use this screen to look up the weather for your CBI destination.</p>
+        <p>Use this screen to plan where you will check the weather.</p>
 
         <label for="weatherCity">City or destination</label>
         <input
@@ -621,42 +609,33 @@ function render() {
           oninput="updateWeatherCity(this.value)"
         />
 
-        <p class="small-note">
-          Step 1: Type your city for the record.  
-          Step 2: Click a weather website below. It will open in a new tab.  
-          Step 3: Read the forecast, then come back and type what you will bring.
+        <p style="margin-top:16px;">
+          Click one of the weather sites below. A new tab will open.
+          Type your city there and read the forecast.
         </p>
 
-        <div class="weather-links">
-          <a
-            href="https://www.accuweather.com/"
-            target="_blank"
-            rel="noopener"
-            class="weather-link"
-          >
+        <div class="summary-grid" style="margin-top:12px;">
+          <div class="summary-card" style="text-align:center; cursor:pointer;" onclick="openAccuWeather()">
             <img
               src="img/accuweather-logo.png"
-              alt="Open AccuWeather in a new tab"
-              class="weather-logo"
+              alt="AccuWeather"
+              style="max-width:160px; height:auto; display:block; margin:0 auto 8px auto;"
             />
-          </a>
+            <div style="font-weight:600; color:#064f58;">Open AccuWeather</div>
+          </div>
 
-          <a
-            href="https://weather.com/"
-            target="_blank"
-            rel="noopener"
-            class="weather-link"
-          >
+          <div class="summary-card" style="text-align:center; cursor:pointer;" onclick="openWeatherChannel()">
             <img
               src="img/weather-channel-logo.png"
-              alt="Open The Weather Channel in a new tab"
-              class="weather-logo"
+              alt="The Weather Channel"
+              style="max-width:160px; height:auto; display:block; margin:0 auto 8px auto;"
             />
-          </a>
+            <div style="font-weight:600; color:#064f58;">Open The Weather Channel</div>
+          </div>
         </div>
 
         <label for="weatherBring" style="margin-top:20px;">
-          Based on this weather, what will you bring?
+          Based on the forecast, what will you bring?
         </label>
         <textarea
           id="weatherBring"
