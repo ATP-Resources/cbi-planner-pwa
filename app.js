@@ -160,7 +160,7 @@ function renderPurposeSummaryList() {
 
 // Paste your own OpenWeatherMap API key here
 // Sign up at https://openweathermap.org/ for a free key
-const WEATHER_API_KEY = f9715f76f28be705da13c53ab5fcc2c5;
+const WEATHER_API_KEY = "f9715f76f28be705da13c53ab5fcc2c5";
 
 // Students click the "Look up weather" button
 async function lookupWeather() {
@@ -916,5 +916,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
 
 
