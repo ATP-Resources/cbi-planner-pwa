@@ -425,3 +425,28 @@ select:focus {
     padding: 26px 18px;
   }
 }
+/* =========================================================
+   WEATHER LOGO BUTTON STYLE UPGRADE
+   Makes the AccuWeather and Weather Channel logo cards 
+   look like clickable buttons
+   ========================================================= */
+
+.weather-logo-card {
+  cursor: pointer;
+  border-radius: 12px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.weather-logo-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+}
+
+.weather-logo-card img {
+  max-width: 160px;
+  height: auto;
+  margin: 0 auto 8px auto;
+  display: block;
+}
+
