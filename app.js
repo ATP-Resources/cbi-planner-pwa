@@ -61,7 +61,7 @@ const currentTrip = {
 };
 
 // =========================================================
-// HELPER FUNCTIONS
+// HELPER FUNCTIONS TO UPDATE STATE
 // =========================================================
 
 function updateTripField(field, value) {
@@ -89,8 +89,70 @@ function updateWeatherWhatToBring(value) {
 }
 
 // =========================================================
+// RESET TRIP STATE
+// Clears all fields so a student can start over
+// =========================================================
+
+function resetCurrentTrip() {
+  // Basic info
+  currentTrip.destinationName = "";
+  currentTrip.destinationAddress = "";
+  currentTrip.tripDate = "";
+  currentTrip.meetTime = "";
+
+  // Route there
+  currentTrip.routeThere.busNumber = "";
+  currentTrip.routeThere.direction = "";
+  currentTrip.routeThere.boardStop = "";
+  currentTrip.routeThere.exitStop = "";
+  currentTrip.routeThere.departTime = "";
+  currentTrip.routeThere.arriveTime = "";
+  currentTrip.routeThere.totalTime = "";
+
+  // Route back
+  currentTrip.routeBack.busNumber = "";
+  currentTrip.routeBack.direction = "";
+  currentTrip.routeBack.boardStop = "";
+  currentTrip.routeBack.exitStop = "";
+  currentTrip.routeBack.departTime = "";
+  currentTrip.routeBack.arriveTime = "";
+  currentTrip.routeBack.totalTime = "";
+
+  // Purpose
+  currentTrip.purpose.lifeSkills = false;
+  currentTrip.purpose.communityAccess = false;
+  currentTrip.purpose.moneySkills = false;
+  currentTrip.purpose.communication = false;
+  currentTrip.purpose.socialSkills = false;
+  currentTrip.purpose.employmentPrep = false;
+  currentTrip.purpose.recreationLeisure = false;
+  currentTrip.purpose.safetySkills = false;
+  currentTrip.purpose.otherText = "";
+
+  // Weather
+  currentTrip.weather.city = "";
+  currentTrip.weather.tempF = null;
+  currentTrip.weather.feelsLikeF = null;
+  currentTrip.weather.description = "";
+  currentTrip.weather.pop = null;
+  currentTrip.weather.whatToBring = "";
+}
+
+// Called by the button
+function clearTripAndStartOver() {
+  const answer = window.confirm(
+    "Are you sure you want to clear this trip and start over?"
+  );
+  if (!answer) return;
+
+  resetCurrentTrip();
+  goTo("planDestination");
+}
+
+// =========================================================
 // GOOGLE MAPS (students still look up details themselves)
 // =========================================================
+
 function openMapsForCurrentTrip() {
   const origin = "Katella High School, Anaheim, CA";
   const destination = `${currentTrip.destinationName} ${currentTrip.destinationAddress}`.trim();
@@ -108,8 +170,9 @@ function openMapsForCurrentTrip() {
 }
 
 // =========================================================
-// PURPOSE SUMMARY BUILDER
+/* PURPOSE SUMMARY BUILDER */
 // =========================================================
+
 function renderPurposeSummaryList() {
   const p = currentTrip.purpose;
   const items = [];
@@ -133,10 +196,10 @@ function renderPurposeSummaryList() {
 // Students type city and interpret data themselves
 // =========================================================
 
-// 🔑 Your API Key — EDIT HERE ONLY
+// Your API Key - edit this line only
 const WEATHER_API_KEY = "PUT_YOUR_API_KEY_HERE";
 
-// Students click “Look up weather”
+// Students click Look up weather
 async function lookupWeather() {
   const cityInput = document.getElementById("weatherCity");
   const resultsDiv = document.getElementById("weatherResults");
@@ -168,7 +231,9 @@ async function lookupWeather() {
     if (!response.ok) {
       let message = `Weather lookup failed (status ${response.status}).`;
       const errorData = await response.json().catch(() => null);
-      if (errorData?.message) message += ` ${errorData.message}`;
+      if (errorData && errorData.message) {
+        message += ` ${errorData.message}`;
+      }
       resultsDiv.innerHTML = message;
       return;
     }
@@ -211,7 +276,7 @@ async function lookupWeather() {
 
         <p class="weather-note">
           Use this information to decide what you should bring.
-          The app does NOT choose for you. You make the plan.
+          The app does not choose for you. You make the plan.
         </p>
       </div>
     `;
@@ -250,6 +315,10 @@ function render() {
         <button class="btn-secondary" onclick="goTo('practice')">
           Practice using Google Maps
         </button>
+
+        <button class="btn-secondary" onclick="clearTripAndStartOver()">
+          Clear trip and start over
+        </button>
       </section>
     `;
   }
@@ -277,18 +346,26 @@ function render() {
         />
 
         <label>Date of trip</label>
-        <input type="date" value="${currentTrip.tripDate}"
-          oninput="updateTripField('tripDate', this.value)" />
+        <input
+          type="date"
+          value="${currentTrip.tripDate}"
+          oninput="updateTripField('tripDate', this.value)"
+        />
 
         <label>Meet time</label>
-        <input type="time" value="${currentTrip.meetTime}"
-          oninput="updateTripField('meetTime', this.value)" />
+        <input
+          type="time"
+          value="${currentTrip.meetTime}"
+          oninput="updateTripField('meetTime', this.value)"
+        />
 
         <button class="btn-primary" onclick="goTo('mapsInstructions')">
           Go to Step 2 - Google Maps steps
         </button>
 
-        <button class="btn-secondary" onclick="goTo('home')">Back</button>
+        <button class="btn-secondary" onclick="goTo('home')">
+          Back to Home
+        </button>
       </section>
     `;
   }
@@ -307,7 +384,7 @@ function render() {
         </ol>
 
         <button class="btn-primary" onclick="openMapsForCurrentTrip()">
-          Open in Google Maps
+          Open in Google Maps (Transit)
         </button>
 
         <button class="btn-primary" onclick="goTo('routeDetails')">
@@ -315,7 +392,7 @@ function render() {
         </button>
 
         <button class="btn-secondary" onclick="goTo('planDestination')">
-          Back
+          Back to Step 1
         </button>
       </section>
     `;
@@ -325,60 +402,193 @@ function render() {
   else if (currentScreen === "routeDetails") {
     const r = currentTrip.routeThere;
     const rb = currentTrip.routeBack;
+    const p = currentTrip.purpose;
 
     app.innerHTML = `
       <section class="screen">
         <h2>Step 3 - Route details</h2>
+        <p>Use your notes from Google Maps. Type the information yourself.</p>
 
         <h3>Route there</h3>
+
         <label>Bus number</label>
-        <input value="${r.busNumber}" oninput="updateRouteThereField('busNumber', this.value)" />
+        <input
+          value="${r.busNumber}"
+          oninput="updateRouteThereField('busNumber', this.value)"
+        />
 
         <label>Direction</label>
-        <input value="${r.direction}" oninput="updateRouteThereField('direction', this.value)" />
+        <input
+          value="${r.direction}"
+          oninput="updateRouteThereField('direction', this.value)"
+        />
 
         <label>Stop where you get on</label>
-        <input value="${r.boardStop}" oninput="updateRouteThereField('boardStop', this.value)" />
+        <input
+          value="${r.boardStop}"
+          oninput="updateRouteThereField('boardStop', this.value)"
+        />
 
         <label>Stop where you get off</label>
-        <input value="${r.exitStop}" oninput="updateRouteThereField('exitStop', this.value)" />
+        <input
+          value="${r.exitStop}"
+          oninput="updateRouteThereField('exitStop', this.value)"
+        />
 
         <label>Departure time</label>
-        <input value="${r.departTime}" oninput="updateRouteThereField('departTime', this.value)" />
+        <input
+          value="${r.departTime}"
+          oninput="updateRouteThereField('departTime', this.value)"
+        />
 
         <label>Arrival time</label>
-        <input value="${r.arriveTime}" oninput="updateRouteThereField('arriveTime', this.value)" />
+        <input
+          value="${r.arriveTime}"
+          oninput="updateRouteThereField('arriveTime', this.value)"
+        />
 
         <label>Total travel time</label>
-        <input value="${r.totalTime}" oninput="updateRouteThereField('totalTime', this.value)" />
+        <input
+          value="${r.totalTime}"
+          oninput="updateRouteThereField('totalTime', this.value)"
+        />
 
         <h3>Route back</h3>
+
         <label>Bus number</label>
-        <input value="${rb.busNumber}" oninput="updateRouteBackField('busNumber', this.value)" />
+        <input
+          value="${rb.busNumber}"
+          oninput="updateRouteBackField('busNumber', this.value)"
+        />
 
         <label>Direction</label>
-        <input value="${rb.direction}" oninput="updateRouteBackField('direction', this.value)" />
+        <input
+          value="${rb.direction}"
+          oninput="updateRouteBackField('direction', this.value)"
+        />
 
         <label>Stop where you get on</label>
-        <input value="${rb.boardStop}" oninput="updateRouteBackField('boardStop', this.value)" />
+        <input
+          value="${rb.boardStop}"
+          oninput="updateRouteBackField('boardStop', this.value)"
+        />
 
         <label>Stop where you get off</label>
-        <input value="${rb.exitStop}" oninput="updateRouteBackField('exitStop', this.value)" />
+        <input
+          value="${rb.exitStop}"
+          oninput="updateRouteBackField('exitStop', this.value)"
+        />
 
         <label>Departure time</label>
-        <input value="${rb.departTime}" oninput="updateRouteBackField('departTime', this.value)" />
+        <input
+          value="${rb.departTime}"
+          oninput="updateRouteBackField('departTime', this.value)"
+        />
 
         <label>Arrival time</label>
-        <input value="${rb.arriveTime}" oninput="updateRouteBackField('arriveTime', this.value)" />
+        <input
+          value="${rb.arriveTime}"
+          oninput="updateRouteBackField('arriveTime', this.value)"
+        />
 
         <label>Total travel time</label>
-        <input value="${rb.totalTime}" oninput="updateRouteBackField('totalTime', this.value)" />
+        <input
+          value="${rb.totalTime}"
+          oninput="updateRouteBackField('totalTime', this.value)"
+        />
+
+        <h3>Step 4 - Why are we going?</h3>
+        <p>Check all the skills you will practice on this trip.</p>
+
+        <div class="purpose-grid">
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.lifeSkills ? "checked" : ""}
+              onchange="togglePurposeField('lifeSkills', this.checked)"
+            />
+            Life skills (shopping, ordering, daily living)
+          </label>
+
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.communityAccess ? "checked" : ""}
+              onchange="togglePurposeField('communityAccess', this.checked)"
+            />
+            Community access and navigation
+          </label>
+
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.moneySkills ? "checked" : ""}
+              onchange="togglePurposeField('moneySkills', this.checked)"
+            />
+            Money skills (budgeting, paying, change)
+          </label>
+
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.communication ? "checked" : ""}
+              onchange="togglePurposeField('communication', this.checked)"
+            />
+            Communication and self advocacy
+          </label>
+
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.socialSkills ? "checked" : ""}
+              onchange="togglePurposeField('socialSkills', this.checked)"
+            />
+            Social skills and teamwork
+          </label>
+
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.employmentPrep ? "checked" : ""}
+              onchange="togglePurposeField('employmentPrep', this.checked)"
+            />
+            Employment preparation or work skills
+          </label>
+
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.recreationLeisure ? "checked" : ""}
+              onchange="togglePurposeField('recreationLeisure', this.checked)"
+            />
+            Recreation and leisure in the community
+          </label>
+
+          <label class="purpose-item">
+            <input
+              type="checkbox"
+              ${p.safetySkills ? "checked" : ""}
+              onchange="togglePurposeField('safetySkills', this.checked)"
+            />
+            Safety skills (street safety, stranger awareness)
+          </label>
+        </div>
+
+        <label>Other reason</label>
+        <input
+          type="text"
+          placeholder="Example: practice transfers, volunteer work, special event"
+          value="${p.otherText}"
+          oninput="updatePurposeOther(this.value)"
+        />
 
         <button class="btn-primary" onclick="goTo('summary')">
           View trip summary
         </button>
 
-        <button class="btn-secondary" onclick="goTo('mapsInstructions')">Back</button>
+        <button class="btn-secondary" onclick="goTo('mapsInstructions')">
+          Back to Step 2
+        </button>
       </section>
     `;
   }
@@ -403,16 +613,20 @@ function render() {
           Look up weather
         </button>
 
-        <div id="weatherResults"></div>
+        <div id="weatherResults" style="margin-top:16px;"></div>
 
-        <label style="margin-top:20px;">Based on this weather, what will you bring?</label>
+        <label style="margin-top:20px;">
+          Based on this weather, what will you bring?
+        </label>
         <textarea
           id="weatherBring"
-          placeholder="Example: jacket, umbrella, water"
+          placeholder="Example: jacket, umbrella, water, bus pass"
           oninput="updateWeatherWhatToBring(this.value)"
         >${w.whatToBring || ""}</textarea>
 
-        <button class="btn-secondary" onclick="goTo('home')">Back</button>
+        <button class="btn-secondary" onclick="goTo('home')">
+          Back to Home
+        </button>
       </section>
     `;
   }
@@ -427,6 +641,7 @@ function render() {
     app.innerHTML = `
       <section class="screen">
         <h2>Trip summary</h2>
+        <p>Review your plan. If something looks wrong, go back and edit the step you need.</p>
 
         <div class="summary-grid">
           <article class="summary-card">
@@ -473,7 +688,38 @@ function render() {
           </article>
         </div>
 
-        <button class="btn-secondary" onclick="goTo('home')">Back to Home</button>
+        <button class="btn-primary" onclick="goTo('planDestination')">
+          Edit Step 1 - Basic info
+        </button>
+
+        <button class="btn-secondary" onclick="goTo('routeDetails')">
+          Edit Step 3 - Route and purpose
+        </button>
+
+        <button class="btn-secondary" onclick="goTo('weather')">
+          Edit weather and packing
+        </button>
+
+        <button class="btn-secondary" onclick="clearTripAndStartOver()">
+          Clear trip and start over
+        </button>
+      </section>
+    `;
+  }
+
+  // ---------------- PAST TRIPS PLACEHOLDER ----------------
+  else if (currentScreen === "past") {
+    app.innerHTML = `
+      <section class="screen">
+        <h2>Past trips</h2>
+        <p>
+          In a future version, this page can show saved trips for each student.
+          For now, use this space to talk about trips you already took.
+        </p>
+
+        <button class="btn-secondary" onclick="goTo('home')">
+          Back to Home
+        </button>
       </section>
     `;
   }
@@ -484,7 +730,9 @@ function render() {
       <section class="screen">
         <h2>Practice using maps</h2>
         <p>Try planning a pretend trip to build confidence.</p>
-        <button class="btn-secondary" onclick="goTo('home')">Back</button>
+        <button class="btn-secondary" onclick="goTo('home')">
+          Back to Home
+        </button>
       </section>
     `;
   }
@@ -493,6 +741,7 @@ function render() {
 // =========================================================
 // SIDEBAR HIGHLIGHT
 // =========================================================
+
 function highlightSidebar(screenName) {
   const items = document.querySelectorAll(".sidebar-item");
   items.forEach(btn => {
@@ -504,6 +753,7 @@ function highlightSidebar(screenName) {
 // =========================================================
 // INITIAL LOAD
 // =========================================================
+
 document.addEventListener("DOMContentLoaded", () => {
   render();
   highlightSidebar(currentScreen);
@@ -511,6 +761,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // Sidebar click navigation
   document.querySelectorAll(".sidebar-item").forEach(item => {
     const screen = item.getAttribute("data-screen");
-    item.addEventListener("click", () => goTo(screen));
+    item.addEventListener("click", () => {
+      if (screen) goTo(screen);
+    });
+
+    // Optional glow effect if you kept the CSS variables
+    item.addEventListener("mousemove", event => {
+      const rect = item.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      item.style.setProperty("--x", `${x}px`);
+      item.style.setProperty("--y", `${y}px`);
+    });
   });
 });
