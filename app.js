@@ -1,5 +1,5 @@
 // =========================================================
-// CBI PLANNER APP WITH TEACHER CLASSES + ROSTERS
+// CBI PLANNER APP WITH TEACHER CLASSES + ROSTERS + PAST TRIPS
 // Firebase Auth + Firestore
 // =========================================================
 
@@ -25,14 +25,15 @@ const db = firebase.firestore();
 let currentUser = null;
 let currentScreen = "auth";
 
-// Selected class and student (teacher workflow)
 let selectedClassId = null;
 let selectedStudentId = null;
 let selectedStudentName = null;
 
-// Local caches for teacher screens
 let teacherClassesCache = [];
 let classRosterCache = [];
+
+// Past trips cache (for selected student)
+let pastTripsCache = []; // [{id, createdAt, tripData}]
 
 // ----------------- TRIP STATE -----------------
 
@@ -101,6 +102,16 @@ function escapeHtml(text) {
     .replaceAll("'", "&#039;");
 }
 
+function formatTimestamp(ts) {
+  if (!ts) return "Unknown time";
+  try {
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleString();
+  } catch (e) {
+    return "Unknown time";
+  }
+}
+
 // ----------------- SIMPLE UPDATERS -----------------
 
 function updateTripField(field, value) {
@@ -137,11 +148,7 @@ function clearCurrentTrip() {
 }
 
 // =========================================================
-// FIRESTORE DATA MODEL
-// teachers/{uid}
-// classes/{classId} { teacherId, name, period, createdAt }
-// classes/{classId}/students/{studentId} { name, createdAt }
-// classes/{classId}/students/{studentId}/trips/{tripId} { tripData, createdAt }
+// FIRESTORE
 // =========================================================
 
 // ----------------- CLASSES -----------------
@@ -196,6 +203,7 @@ async function createClassFromForm() {
 
     await loadTeacherClasses();
     currentScreen = "classDetail";
+    await loadClassRoster(selectedClassId);
     render();
     highlightSidebar("classes");
   } catch (e) {
@@ -210,16 +218,20 @@ async function createClassFromForm() {
 async function deleteClass(classId) {
   if (!requireAuthOrBounce()) return;
 
-  const ok = confirm("Delete this class? This will remove access to the roster and trips in the app.");
+  const ok = confirm("Delete this class? This removes access to roster and trips in the app.");
   if (!ok) return;
 
   try {
     await db.collection("classes").doc(classId).delete();
+
     if (selectedClassId === classId) {
       selectedClassId = null;
       selectedStudentId = null;
       selectedStudentName = null;
+      classRosterCache = [];
+      pastTripsCache = [];
     }
+
     await loadTeacherClasses();
     currentScreen = "classes";
     render();
@@ -317,6 +329,7 @@ async function deleteStudent(studentId) {
     if (selectedStudentId === studentId) {
       selectedStudentId = null;
       selectedStudentName = null;
+      pastTripsCache = [];
     }
 
     await loadClassRoster(selectedClassId);
@@ -390,9 +403,7 @@ async function loadLatestTripForSelectedStudent() {
       return;
     }
 
-    const doc = snap.docs[0];
-    const data = doc.data();
-
+    const data = snap.docs[0].data();
     if (data && data.tripData) {
       currentTrip = data.tripData;
       alert("Loaded the most recent saved trip for this student.");
@@ -403,6 +414,95 @@ async function loadLatestTripForSelectedStudent() {
   } catch (e) {
     console.error(e);
     alert("Could not load trip. Check Firestore rules and try again.");
+  }
+}
+
+// ----------------- PAST TRIPS LIST -----------------
+
+async function loadPastTripsForSelectedStudent() {
+  if (!requireAuthOrBounce()) return;
+
+  if (!selectedClassId || !selectedStudentId) {
+    pastTripsCache = [];
+    return;
+  }
+
+  const snap = await db
+    .collection("classes")
+    .doc(selectedClassId)
+    .collection("students")
+    .doc(selectedStudentId)
+    .collection("trips")
+    .orderBy("createdAt", "desc")
+    .limit(50)
+    .get();
+
+  pastTripsCache = snap.docs.map(d => ({
+    id: d.id,
+    ...d.data()
+  }));
+}
+
+async function openTripById(tripId) {
+  if (!requireAuthOrBounce()) return;
+  if (!selectedClassId || !selectedStudentId) {
+    alert("Pick a student first.");
+    return;
+  }
+
+  try {
+    const doc = await db
+      .collection("classes")
+      .doc(selectedClassId)
+      .collection("students")
+      .doc(selectedStudentId)
+      .collection("trips")
+      .doc(tripId)
+      .get();
+
+    if (!doc.exists) {
+      alert("Trip not found.");
+      return;
+    }
+
+    const data = doc.data();
+    if (data && data.tripData) {
+      currentTrip = data.tripData;
+      alert("Trip loaded. You can edit it now.");
+      currentScreen = "planDestination";
+      render();
+      highlightSidebar("planDestination");
+    } else {
+      alert("Trip data missing.");
+    }
+  } catch (e) {
+    console.error(e);
+    alert("Could not open trip. Check Firestore rules and try again.");
+  }
+}
+
+async function deleteTripById(tripId) {
+  if (!requireAuthOrBounce()) return;
+  if (!selectedClassId || !selectedStudentId) return;
+
+  const ok = confirm("Delete this trip?");
+  if (!ok) return;
+
+  try {
+    await db
+      .collection("classes")
+      .doc(selectedClassId)
+      .collection("students")
+      .doc(selectedStudentId)
+      .collection("trips")
+      .doc(tripId)
+      .delete();
+
+    await loadPastTripsForSelectedStudent();
+    render();
+  } catch (e) {
+    console.error(e);
+    alert("Could not delete trip. Check Firestore rules and try again.");
   }
 }
 
@@ -501,6 +601,7 @@ auth.onAuthStateChanged(async user => {
     selectedStudentName = null;
     teacherClassesCache = [];
     classRosterCache = [];
+    pastTripsCache = [];
     currentTrip = createEmptyTrip();
     currentScreen = "auth";
     render();
@@ -514,9 +615,7 @@ auth.onAuthStateChanged(async user => {
     console.error(e);
   }
 
-  if (currentScreen === "auth") {
-    currentScreen = "home";
-  }
+  if (currentScreen === "auth") currentScreen = "home";
 
   render();
   highlightSidebar("home");
@@ -535,6 +634,22 @@ function goTo(screenName) {
   }
 
   currentScreen = screenName;
+
+  // Auto-load past trips whenever you enter Past trips
+  if (screenName === "past") {
+    loadPastTripsForSelectedStudent()
+      .then(() => {
+        render();
+        highlightSidebar("past");
+      })
+      .catch(e => {
+        console.error(e);
+        render();
+        highlightSidebar("past");
+      });
+    return;
+  }
+
   render();
   highlightSidebar(screenName);
 }
@@ -652,6 +767,7 @@ function render() {
         <div class="row">
           <button class="btn-primary" type="button" onclick="goTo('classes')">Go to Teacher classes</button>
           <button class="btn-secondary" type="button" onclick="goTo('studentPicker')">Pick student</button>
+          <button class="btn-secondary" type="button" onclick="goTo('past')">Past trips</button>
         </div>
 
         <div class="row">
@@ -826,62 +942,40 @@ function render() {
 
         <p class="small-note">
           Student: <strong>${selectedStudentName ? escapeHtml(selectedStudentName) : "No student selected"}</strong>
-          ${selectedClassId ? "" : "<br />Tip: Go to Pick student first."}
         </p>
 
         <label for="destName">Destination name</label>
-        <input
-          id="destName"
-          type="text"
-          autocomplete="off"
-          placeholder="Example: Target"
+        <input id="destName" type="text" autocomplete="off" placeholder="Example: Target"
           value="${escapeHtml(currentTrip.destinationName)}"
           oninput="updateTripField('destinationName', this.value)"
         />
 
         <label for="destAddress">Destination address</label>
-        <input
-          id="destAddress"
-          type="text"
-          autocomplete="off"
-          placeholder="Street, city, state"
+        <input id="destAddress" type="text" autocomplete="off" placeholder="Street, city, state"
           value="${escapeHtml(currentTrip.destinationAddress)}"
           oninput="updateTripField('destinationAddress', this.value)"
         />
 
         <label for="tripDate">Date of trip</label>
-        <input
-          id="tripDate"
-          type="date"
+        <input id="tripDate" type="date"
           value="${escapeHtml(currentTrip.tripDate)}"
           oninput="updateTripField('tripDate', this.value)"
         />
 
         <label for="meetTime">Meet time</label>
-        <input
-          id="meetTime"
-          type="time"
+        <input id="meetTime" type="time"
           value="${escapeHtml(currentTrip.meetTime)}"
           oninput="updateTripField('meetTime', this.value)"
         />
 
         <div class="row">
-          <button class="btn-primary" type="button" onclick="goTo('mapsInstructions')">
-            Go to Step 2
-          </button>
-
-          <button class="btn-secondary" type="button" onclick="loadLatestTripForSelectedStudent()">
-            Load latest trip
-          </button>
-
-          <button class="btn-secondary" type="button" onclick="clearCurrentTrip()">
-            Clear trip
-          </button>
+          <button class="btn-primary" type="button" onclick="goTo('mapsInstructions')">Go to Step 2</button>
+          <button class="btn-secondary" type="button" onclick="loadLatestTripForSelectedStudent()">Load latest trip</button>
+          <button class="btn-secondary" type="button" onclick="clearCurrentTrip()">Clear trip</button>
+          <button class="btn-secondary" type="button" onclick="goTo('past')">Past trips</button>
         </div>
 
-        <button class="btn-secondary" type="button" onclick="goTo('home')">
-          Back to Home
-        </button>
+        <button class="btn-secondary" type="button" onclick="goTo('home')">Back to Home</button>
       </section>
     `;
     return;
@@ -892,27 +986,11 @@ function render() {
     app.innerHTML = `
       <section class="screen" aria-labelledby="step2Title">
         <h2 id="step2Title">Step 2 - Use Google Maps</h2>
-        <p>Follow these steps to find your bus route. Write details in Step 3.</p>
+        <p>Find your transit route. Then type your notes in Step 3.</p>
 
-        <ol class="step-list">
-          <li>Confirm destination in Step 1.</li>
-          <li>Open Google Maps in transit mode.</li>
-          <li>Choose the route you can follow.</li>
-          <li>Write down bus number, stops, times, total time.</li>
-          <li>Return and type it into Step 3.</li>
-        </ol>
-
-        <button class="btn-primary" type="button" onclick="openMapsForCurrentTrip()">
-          Open in Google Maps (Transit)
-        </button>
-
-        <button class="btn-primary" type="button" onclick="goTo('routeDetails')">
-          Go to Step 3
-        </button>
-
-        <button class="btn-secondary" type="button" onclick="goTo('planDestination')">
-          Back to Step 1
-        </button>
+        <button class="btn-primary" type="button" onclick="openMapsForCurrentTrip()">Open in Google Maps (Transit)</button>
+        <button class="btn-primary" type="button" onclick="goTo('routeDetails')">Go to Step 3</button>
+        <button class="btn-secondary" type="button" onclick="goTo('planDestination')">Back to Step 1</button>
       </section>
     `;
     return;
@@ -927,100 +1005,54 @@ function render() {
     app.innerHTML = `
       <section class="screen" aria-labelledby="step3Title">
         <h2 id="step3Title">Step 3 - Route details</h2>
-        <p>Use notes from Google Maps. Type the information yourself.</p>
 
         <h3 class="section-title">Route there</h3>
-
-        <label for="busNumber">Bus number</label>
-        <input id="busNumber" type="text" value="${escapeHtml(r.busNumber)}" oninput="updateRouteThereField('busNumber', this.value)" />
-
-        <label for="direction">Direction</label>
-        <input id="direction" type="text" value="${escapeHtml(r.direction)}" oninput="updateRouteThereField('direction', this.value)" />
-
-        <label for="boardStop">Stop where you get on</label>
-        <input id="boardStop" type="text" value="${escapeHtml(r.boardStop)}" oninput="updateRouteThereField('boardStop', this.value)" />
-
-        <label for="exitStop">Stop where you get off</label>
-        <input id="exitStop" type="text" value="${escapeHtml(r.exitStop)}" oninput="updateRouteThereField('exitStop', this.value)" />
-
-        <label for="departTime">Departure time</label>
-        <input id="departTime" type="text" value="${escapeHtml(r.departTime)}" oninput="updateRouteThereField('departTime', this.value)" />
-
-        <label for="arriveTime">Arrival time</label>
-        <input id="arriveTime" type="text" value="${escapeHtml(r.arriveTime)}" oninput="updateRouteThereField('arriveTime', this.value)" />
-
-        <label for="totalTime">Total travel time</label>
-        <input id="totalTime" type="text" value="${escapeHtml(r.totalTime)}" oninput="updateRouteThereField('totalTime', this.value)" />
+        <label>Bus number</label>
+        <input value="${escapeHtml(r.busNumber)}" oninput="updateRouteThereField('busNumber', this.value)" />
+        <label>Direction</label>
+        <input value="${escapeHtml(r.direction)}" oninput="updateRouteThereField('direction', this.value)" />
+        <label>Stop where you get on</label>
+        <input value="${escapeHtml(r.boardStop)}" oninput="updateRouteThereField('boardStop', this.value)" />
+        <label>Stop where you get off</label>
+        <input value="${escapeHtml(r.exitStop)}" oninput="updateRouteThereField('exitStop', this.value)" />
+        <label>Departure time</label>
+        <input value="${escapeHtml(r.departTime)}" oninput="updateRouteThereField('departTime', this.value)" />
+        <label>Arrival time</label>
+        <input value="${escapeHtml(r.arriveTime)}" oninput="updateRouteThereField('arriveTime', this.value)" />
+        <label>Total travel time</label>
+        <input value="${escapeHtml(r.totalTime)}" oninput="updateRouteThereField('totalTime', this.value)" />
 
         <h3 class="section-title" style="margin-top:24px;">Route back</h3>
-
-        <label for="busNumberBack">Bus number</label>
-        <input id="busNumberBack" type="text" value="${escapeHtml(rb.busNumber)}" oninput="updateRouteBackField('busNumber', this.value)" />
-
-        <label for="directionBack">Direction</label>
-        <input id="directionBack" type="text" value="${escapeHtml(rb.direction)}" oninput="updateRouteBackField('direction', this.value)" />
-
-        <label for="boardStopBack">Stop where you get on</label>
-        <input id="boardStopBack" type="text" value="${escapeHtml(rb.boardStop)}" oninput="updateRouteBackField('boardStop', this.value)" />
-
-        <label for="exitStopBack">Stop where you get off</label>
-        <input id="exitStopBack" type="text" value="${escapeHtml(rb.exitStop)}" oninput="updateRouteBackField('exitStop', this.value)" />
-
-        <label for="departTimeBack">Departure time</label>
-        <input id="departTimeBack" type="text" value="${escapeHtml(rb.departTime)}" oninput="updateRouteBackField('departTime', this.value)" />
-
-        <label for="arriveTimeBack">Arrival time</label>
-        <input id="arriveTimeBack" type="text" value="${escapeHtml(rb.arriveTime)}" oninput="updateRouteBackField('arriveTime', this.value)" />
-
-        <label for="totalTimeBack">Total travel time</label>
-        <input id="totalTimeBack" type="text" value="${escapeHtml(rb.totalTime)}" oninput="updateRouteBackField('totalTime', this.value)" />
+        <label>Bus number</label>
+        <input value="${escapeHtml(rb.busNumber)}" oninput="updateRouteBackField('busNumber', this.value)" />
+        <label>Direction</label>
+        <input value="${escapeHtml(rb.direction)}" oninput="updateRouteBackField('direction', this.value)" />
+        <label>Stop where you get on</label>
+        <input value="${escapeHtml(rb.boardStop)}" oninput="updateRouteBackField('boardStop', this.value)" />
+        <label>Stop where you get off</label>
+        <input value="${escapeHtml(rb.exitStop)}" oninput="updateRouteBackField('exitStop', this.value)" />
+        <label>Departure time</label>
+        <input value="${escapeHtml(rb.departTime)}" oninput="updateRouteBackField('departTime', this.value)" />
+        <label>Arrival time</label>
+        <input value="${escapeHtml(rb.arriveTime)}" oninput="updateRouteBackField('arriveTime', this.value)" />
+        <label>Total travel time</label>
+        <input value="${escapeHtml(rb.totalTime)}" oninput="updateRouteBackField('totalTime', this.value)" />
 
         <h3 class="section-title" style="margin-top:24px;">Step 4 - Why are we going?</h3>
 
         <div class="purpose-grid">
-          <label class="purpose-item">
-            <input type="checkbox" ${p.lifeSkills ? "checked" : ""} onchange="togglePurposeField('lifeSkills', this.checked)" />
-            Life skills (shopping, ordering, daily living)
-          </label>
-
-          <label class="purpose-item">
-            <input type="checkbox" ${p.communityAccess ? "checked" : ""} onchange="togglePurposeField('communityAccess', this.checked)" />
-            Community access and navigation
-          </label>
-
-          <label class="purpose-item">
-            <input type="checkbox" ${p.moneySkills ? "checked" : ""} onchange="togglePurposeField('moneySkills', this.checked)" />
-            Money skills (budgeting, paying, change)
-          </label>
-
-          <label class="purpose-item">
-            <input type="checkbox" ${p.communication ? "checked" : ""} onchange="togglePurposeField('communication', this.checked)" />
-            Communication and self advocacy
-          </label>
-
-          <label class="purpose-item">
-            <input type="checkbox" ${p.socialSkills ? "checked" : ""} onchange="togglePurposeField('socialSkills', this.checked)" />
-            Social skills and teamwork
-          </label>
-
-          <label class="purpose-item">
-            <input type="checkbox" ${p.employmentPrep ? "checked" : ""} onchange="togglePurposeField('employmentPrep', this.checked)" />
-            Employment preparation or work skills
-          </label>
-
-          <label class="purpose-item">
-            <input type="checkbox" ${p.recreationLeisure ? "checked" : ""} onchange="togglePurposeField('recreationLeisure', this.checked)" />
-            Recreation and leisure in the community
-          </label>
-
-          <label class="purpose-item">
-            <input type="checkbox" ${p.safetySkills ? "checked" : ""} onchange="togglePurposeField('safetySkills', this.checked)" />
-            Safety skills (street safety, stranger awareness, etc.)
-          </label>
+          <label class="purpose-item"><input type="checkbox" ${p.lifeSkills ? "checked" : ""} onchange="togglePurposeField('lifeSkills', this.checked)" /> Life skills</label>
+          <label class="purpose-item"><input type="checkbox" ${p.communityAccess ? "checked" : ""} onchange="togglePurposeField('communityAccess', this.checked)" /> Community access</label>
+          <label class="purpose-item"><input type="checkbox" ${p.moneySkills ? "checked" : ""} onchange="togglePurposeField('moneySkills', this.checked)" /> Money skills</label>
+          <label class="purpose-item"><input type="checkbox" ${p.communication ? "checked" : ""} onchange="togglePurposeField('communication', this.checked)" /> Communication</label>
+          <label class="purpose-item"><input type="checkbox" ${p.socialSkills ? "checked" : ""} onchange="togglePurposeField('socialSkills', this.checked)" /> Social skills</label>
+          <label class="purpose-item"><input type="checkbox" ${p.employmentPrep ? "checked" : ""} onchange="togglePurposeField('employmentPrep', this.checked)" /> Employment prep</label>
+          <label class="purpose-item"><input type="checkbox" ${p.recreationLeisure ? "checked" : ""} onchange="togglePurposeField('recreationLeisure', this.checked)" /> Recreation</label>
+          <label class="purpose-item"><input type="checkbox" ${p.safetySkills ? "checked" : ""} onchange="togglePurposeField('safetySkills', this.checked)" /> Safety</label>
         </div>
 
-        <label for="purposeOther">Other reason</label>
-        <input id="purposeOther" type="text" value="${escapeHtml(p.otherText)}" oninput="updatePurposeOther(this.value)" />
+        <label>Other reason</label>
+        <input value="${escapeHtml(p.otherText)}" oninput="updatePurposeOther(this.value)" />
 
         <div class="row">
           <button class="btn-primary" type="button" onclick="goTo('summary')">View Trip summary</button>
@@ -1034,20 +1066,14 @@ function render() {
   // ---------------- WEATHER ----------------
   if (currentScreen === "weather") {
     const w = currentTrip.weather;
-    const cityValue = w.city || "";
-
     app.innerHTML = `
       <section class="screen" aria-labelledby="weatherTitle">
         <h2 id="weatherTitle">Check Weather for Your Trip</h2>
         <p>Type the city, then choose a weather website.</p>
 
         <label for="weatherCity">City or destination</label>
-        <input
-          id="weatherCity"
-          type="text"
-          placeholder="Example: Anaheim"
-          autocomplete="off"
-          value="${escapeHtml(cityValue)}"
+        <input id="weatherCity" type="text" placeholder="Example: Anaheim" autocomplete="off"
+          value="${escapeHtml(w.city || "")}"
           oninput="updateWeatherCity(this.value)"
         />
 
@@ -1064,7 +1090,9 @@ function render() {
         </div>
 
         <label for="weatherBring" style="margin-top:20px;">Based on this weather, what will you bring?</label>
-        <textarea id="weatherBring" placeholder="Example: jacket, umbrella, water, bus pass" oninput="updateWeatherWhatToBring(this.value)">${escapeHtml(w.whatToBring)}</textarea>
+        <textarea id="weatherBring" placeholder="Example: jacket, umbrella, water, bus pass"
+          oninput="updateWeatherWhatToBring(this.value)"
+        >${escapeHtml(w.whatToBring)}</textarea>
 
         <button class="btn-secondary" type="button" onclick="goTo('home')">Back to Home</button>
       </section>
@@ -1135,6 +1163,7 @@ function render() {
 
         <div class="row">
           <button class="btn-primary" type="button" onclick="saveTripNow()">Save this trip</button>
+          <button class="btn-secondary" type="button" onclick="goTo('past')">Past trips</button>
           <button class="btn-secondary" type="button" onclick="goTo('planDestination')">Edit Step 1</button>
           <button class="btn-secondary" type="button" onclick="goTo('routeDetails')">Edit route</button>
           <button class="btn-secondary" type="button" onclick="goTo('weather')">Edit weather</button>
@@ -1144,29 +1173,72 @@ function render() {
     return;
   }
 
-  // ---------------- PLACEHOLDERS ----------------
+  // ---------------- PAST TRIPS ----------------
   if (currentScreen === "past") {
+    const studentLabel = selectedStudentName ? escapeHtml(selectedStudentName) : "No student selected";
+
+    let bodyHtml = "";
+
+    if (!selectedClassId || !selectedStudentId) {
+      bodyHtml = `
+        <div class="card">
+          <p class="card-title">Pick a student first</p>
+          <p class="card-sub">Go to Pick student, choose a class and student, then come back here.</p>
+          <div class="row">
+            <button class="btn-primary" type="button" onclick="goTo('studentPicker')">Pick student</button>
+            <button class="btn-secondary" type="button" onclick="goTo('home')">Back to Home</button>
+          </div>
+        </div>
+      `;
+    } else {
+      const cards = pastTripsCache
+        .map(t => {
+          const created = formatTimestamp(t.createdAt);
+          const trip = t.tripData || {};
+          const title = trip.destinationName ? escapeHtml(trip.destinationName) : "Untitled trip";
+          const dateLine = trip.tripDate ? `Trip date: ${escapeHtml(trip.tripDate)}` : "Trip date not set";
+          const addressLine = trip.destinationAddress ? escapeHtml(trip.destinationAddress) : "No address";
+
+          return `
+            <div class="card">
+              <p class="card-title">${title}</p>
+              <p class="card-sub">${dateLine}</p>
+              <p class="card-sub">Saved: ${escapeHtml(created)}</p>
+              <p class="card-sub">${addressLine}</p>
+              <div class="hr"></div>
+              <div class="row">
+                <button class="btn-primary" type="button" onclick="openTripById('${t.id}')">Open</button>
+                <button class="btn-danger" type="button" onclick="deleteTripById('${t.id}')">Delete</button>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+
+      bodyHtml = `
+        <div class="row">
+          <button class="btn-secondary" type="button" onclick="goTo('planDestination')">Back to Step 1</button>
+          <button class="btn-secondary" type="button" onclick="goTo('studentPicker')">Change student</button>
+          <button class="btn-secondary" type="button" onclick="refreshPastTrips()">Refresh list</button>
+        </div>
+
+        <div class="card-grid" style="margin-top:14px;">
+          ${cards || `<p class="small-note">No saved trips yet for this student.</p>`}
+        </div>
+      `;
+    }
+
     app.innerHTML = `
       <section class="screen" aria-labelledby="pastTitle">
         <h2 id="pastTitle">Past trips</h2>
-        <p>This screen will be upgraded next to show saved trips per student.</p>
-        <button class="btn-secondary" type="button" onclick="goTo('home')">Back to Home</button>
+        <p class="small-note">Student: <strong>${studentLabel}</strong></p>
+        ${bodyHtml}
       </section>
     `;
     return;
   }
 
-  if (currentScreen === "practice") {
-    app.innerHTML = `
-      <section class="screen" aria-labelledby="practiceTitle">
-        <h2 id="practiceTitle">Practice using maps</h2>
-        <p>Use this for practice scenarios before a real CBI trip.</p>
-        <button class="btn-secondary" type="button" onclick="goTo('home')">Back to Home</button>
-      </section>
-    `;
-    return;
-  }
-
+  // ---------------- FALLBACK ----------------
   app.innerHTML = `<p>Screen not found.</p>`;
 }
 
@@ -1178,6 +1250,7 @@ async function openClassDetail(classId) {
   selectedClassId = classId;
   selectedStudentId = null;
   selectedStudentName = null;
+  pastTripsCache = [];
 
   await loadClassRoster(selectedClassId);
 
@@ -1202,6 +1275,7 @@ async function pickerLoadRoster() {
   selectedClassId = classId;
   selectedStudentId = null;
   selectedStudentName = null;
+  pastTripsCache = [];
 
   await loadClassRoster(selectedClassId);
 
@@ -1224,6 +1298,11 @@ function pickerUseStudent() {
   }
 
   pickStudent(student.id, student.name);
+}
+
+async function refreshPastTrips() {
+  await loadPastTripsForSelectedStudent();
+  render();
 }
 
 // =========================================================
@@ -1265,12 +1344,6 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error(e);
             goTo("classes");
           });
-        return;
-      }
-
-      if (screen === "studentPicker") {
-        // If a class is already selected, keep roster loaded
-        goTo("studentPicker");
         return;
       }
 
