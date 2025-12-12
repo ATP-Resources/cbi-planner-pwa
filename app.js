@@ -1,9 +1,33 @@
 // =========================================================
-// CBI PLANNER APP LOGIC
-// Standard JS, student focused, teacher friendly
+// CBI PLANNER APP WITH TEACHER LOGIN
+// Firebase Auth + Firestore + student-facing planner
 // =========================================================
 
-// Create a brand-new empty trip object
+// ----------------- FIREBASE SETUP -----------------
+
+// Your Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyAC-zl14hzA9itpol-0yhz4NYiSF-aSy4Q",
+  authDomain: "cbi-planner-web.firebaseapp.com",
+  projectId: "cbi-planner-web",
+  storageBucket: "cbi-planner-web.firebasestorage.app",
+  messagingSenderId: "736590365612",
+  appId: "1:736590365612:web:043b8cb2bee5666c6ff009",
+  measurementId: "G-NC838KKZNZ"
+};
+
+// Initialize Firebase (global firebase object comes from script tags in index.html)
+firebase.initializeApp(firebaseConfig);
+
+// Shortcuts
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// Current signed in teacher
+let currentUser = null;
+
+// ----------------- TRIP STATE -----------------
+
 function createEmptyTrip() {
   return {
     // Step 1 - basic info
@@ -12,7 +36,7 @@ function createEmptyTrip() {
     tripDate: "",
     meetTime: "",
 
-    // Step 3 - route there
+    // Route there
     routeThere: {
       busNumber: "",
       direction: "",
@@ -23,7 +47,7 @@ function createEmptyTrip() {
       totalTime: ""
     },
 
-    // Step 3 - route back
+    // Route back
     routeBack: {
       busNumber: "",
       direction: "",
@@ -34,7 +58,7 @@ function createEmptyTrip() {
       totalTime: ""
     },
 
-    // Step 4 - purpose of trip
+    // Purpose of trip
     purpose: {
       lifeSkills: false,
       communityAccess: false,
@@ -47,7 +71,7 @@ function createEmptyTrip() {
       otherText: ""
     },
 
-    // Weather notes - students interpret weather themselves
+    // Weather notes, students interpret weather themselves
     weather: {
       city: "",
       whatToBring: ""
@@ -56,14 +80,10 @@ function createEmptyTrip() {
 }
 
 // Current screen name
-let currentScreen = "home";
-
-// Main trip state for the current student
+let currentScreen = "auth"; // default to auth until Firebase tells us
 let currentTrip = createEmptyTrip();
 
-// =========================================================
-// HELPER FUNCTIONS TO UPDATE STATE
-// =========================================================
+// ----------------- SIMPLE UPDATERS -----------------
 
 function updateTripField(field, value) {
   currentTrip[field] = value;
@@ -85,23 +105,22 @@ function updatePurposeOther(value) {
   currentTrip.purpose.otherText = value;
 }
 
+function updateWeatherCity(value) {
+  currentTrip.weather.city = value;
+}
+
 function updateWeatherWhatToBring(value) {
   currentTrip.weather.whatToBring = value;
 }
 
-// Clear the whole trip
 function clearCurrentTrip() {
-  const ok = window.confirm("Clear all information for this CBI trip?");
-  if (!ok) return;
-
   currentTrip = createEmptyTrip();
   render();
-  highlightSidebar(currentScreen);
 }
 
 // =========================================================
 // GOOGLE MAPS INTEGRATION
-// Opens transit directions only - students still copy details
+// Opens transit directions only, students still copy details
 // =========================================================
 
 function openMapsForCurrentTrip() {
@@ -121,8 +140,39 @@ function openMapsForCurrentTrip() {
 }
 
 // =========================================================
+// WEATHER LINKS (NO API KEY)
+// Students type a city, then open a weather site in a new tab
+// =========================================================
+
+function openWeatherSite(provider) {
+  const cityInput = document.getElementById("weatherCity");
+  const city = cityInput ? cityInput.value.trim() : "";
+
+  if (!city) {
+    alert("Type a city or destination first.");
+    return;
+  }
+
+  currentTrip.weather.city = city;
+
+  let url = "";
+  if (provider === "accuweather") {
+    url = `https://www.accuweather.com/en/search-locations?query=${encodeURIComponent(
+      city
+    )}`;
+  } else if (provider === "weatherChannel") {
+    url = `https://weather.com/search/enhancedlocalsearch?where=${encodeURIComponent(
+      city
+    )}`;
+  }
+
+  if (url) {
+    window.open(url, "_blank");
+  }
+}
+
+// =========================================================
 // PURPOSE SUMMARY BUILDER
-// Used in the Trip Summary screen
 // =========================================================
 
 function renderPurposeSummaryList() {
@@ -165,55 +215,112 @@ function renderPurposeSummaryList() {
 }
 
 // =========================================================
-// WEATHER LINKS (no API)
-// Students type a city, then pick a website
+// TEACHER AUTH HANDLERS
 // =========================================================
 
-function openWeatherSite(site) {
-  const cityInput = document.getElementById("weatherCity");
+async function handleTeacherLogin() {
+  const emailInput = document.getElementById("authEmail");
+  const passwordInput = document.getElementById("authPassword");
+  const messageDiv = document.getElementById("authMessage");
 
-  let city = cityInput ? cityInput.value.trim() : "";
+  if (!emailInput || !passwordInput || !messageDiv) return;
 
-  // If input is empty, try destination info as a fallback
-  if (!city) {
-    if (currentTrip.destinationAddress) {
-      city = currentTrip.destinationAddress;
-    } else if (currentTrip.destinationName) {
-      city = currentTrip.destinationName;
-    }
-  }
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
 
-  if (!city) {
-    alert("Type a city or destination first.");
+  if (!email || !password) {
+    messageDiv.textContent = "Enter email and password.";
+    messageDiv.style.color = "red";
     return;
   }
 
-  // Save to state so it shows up in summary
-  currentTrip.weather.city = city;
+  messageDiv.textContent = "Signing in...";
+  messageDiv.style.color = "#244b55";
 
-  let url = "";
-
-  if (site === "accuweather") {
-    url = `https://www.accuweather.com/en/search-locations?query=${encodeURIComponent(
-      city
-    )}`;
-  } else if (site === "weathercom") {
-    url = `https://weather.com/search/enhancedlocalsearch?where=${encodeURIComponent(
-      city
-    )}`;
-  } else {
-    return;
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+    messageDiv.textContent = "";
+  } catch (error) {
+    console.error(error);
+    messageDiv.textContent = error.message;
+    messageDiv.style.color = "red";
   }
-
-  window.open(url, "_blank", "noopener");
 }
+
+async function handleTeacherSignup() {
+  const nameInput = document.getElementById("authName");
+  const emailInput = document.getElementById("authEmail");
+  const passwordInput = document.getElementById("authPassword");
+  const messageDiv = document.getElementById("authMessage");
+
+  if (!emailInput || !passwordInput || !messageDiv) return;
+
+  const name = nameInput ? nameInput.value.trim() : "";
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+
+  if (!email || !password) {
+    messageDiv.textContent = "Enter email and password to create an account.";
+    messageDiv.style.color = "red";
+    return;
+  }
+
+  messageDiv.textContent = "Creating account...";
+  messageDiv.style.color = "#244b55";
+
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, password);
+    const user = cred.user;
+
+    await db.collection("teachers").doc(user.uid).set({
+      name: name || null,
+      email,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    messageDiv.textContent = "Account created. You are signed in.";
+    messageDiv.style.color = "green";
+  } catch (error) {
+    console.error(error);
+    messageDiv.textContent = error.message;
+    messageDiv.style.color = "red";
+  }
+}
+
+function signOutTeacher() {
+  auth.signOut();
+}
+
+// Listen for auth changes and switch screens
+auth.onAuthStateChanged(user => {
+  currentUser = user || null;
+
+  if (currentUser) {
+    if (currentScreen === "auth") {
+      currentScreen = "home";
+    }
+  } else {
+    currentTrip = createEmptyTrip();
+    currentScreen = "auth";
+  }
+
+  render();
+  highlightSidebar(currentScreen);
+});
 
 // =========================================================
 // SCREEN RENDERING
-// Renders the correct screen into the #app container
 // =========================================================
 
 function goTo(screenName) {
+  // Block navigation if not signed in
+  if (!currentUser && screenName !== "auth") {
+    currentScreen = "auth";
+    render();
+    highlightSidebar(currentScreen);
+    return;
+  }
+
   currentScreen = screenName;
   render();
   highlightSidebar(screenName);
@@ -227,6 +334,60 @@ function render() {
     return;
   }
 
+  // ----------------- AUTH SCREEN -----------------
+  if (currentScreen === "auth") {
+    app.innerHTML = `
+      <section class="screen" aria-labelledby="authTitle">
+        <h2 id="authTitle">Teacher sign in</h2>
+        <p>
+          Sign in with your school email. New teachers can create an account below.
+        </p>
+
+        <label for="authEmail">Email</label>
+        <input
+          id="authEmail"
+          type="email"
+          autocomplete="email"
+          placeholder="teacher@example.com"
+        />
+
+        <label for="authPassword">Password</label>
+        <input
+          id="authPassword"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Choose a strong password"
+        />
+
+        <label for="authName">Your name (for new accounts)</label>
+        <input
+          id="authName"
+          type="text"
+          autocomplete="name"
+          placeholder="Example: Mr. Keating"
+        />
+
+        <div class="auth-buttons">
+          <button class="btn-primary" type="button" onclick="handleTeacherLogin()">
+            Sign in
+          </button>
+          <button class="btn-secondary" type="button" onclick="handleTeacherSignup()">
+            Create teacher account
+          </button>
+        </div>
+
+        <p class="small-note">
+          Tip: Use a password you are comfortable sharing with trusted classroom staff if they help you run CBI trips.
+        </p>
+
+        <div id="authMessage" class="auth-message"></div>
+      </section>
+    `;
+    return;
+  }
+
+  // From this point on, we assume there is a currentUser
+
   // ----------------- HOME SCREEN -----------------
   if (currentScreen === "home") {
     app.innerHTML = `
@@ -238,6 +399,12 @@ function render() {
           The app does not do the planning for you.
         </p>
 
+        ${
+          currentUser
+            ? `<p class="small-note"><strong>Signed in as:</strong> ${currentUser.email}</p>`
+            : ""
+        }
+
         <button class="btn-primary" type="button" onclick="goTo('planDestination')">
           Start a new CBI trip
         </button>
@@ -246,8 +413,8 @@ function render() {
           Practice using Google Maps first
         </button>
 
-        <button class="btn-secondary btn-clear-trip" type="button" onclick="clearCurrentTrip()">
-          Clear current trip
+        <button class="btn-secondary" type="button" onclick="signOutTeacher()" style="margin-top:20px;">
+          Sign out
         </button>
       </section>
     `;
@@ -594,11 +761,12 @@ function render() {
   // ----------------- WEATHER SCREEN -----------------
   else if (currentScreen === "weather") {
     const w = currentTrip.weather;
+    const cityValue = w.city || currentTrip.destinationAddress || "";
 
     app.innerHTML = `
       <section class="screen" aria-labelledby="weatherTitle">
         <h2 id="weatherTitle">Check Weather for Your Trip</h2>
-        <p>Type a city, then choose a website. Use the weather information to decide what you will bring.</p>
+        <p>Type the city, then choose a weather website. Use what you see to decide what to bring.</p>
 
         <label for="weatherCity">City or destination</label>
         <input
@@ -606,34 +774,19 @@ function render() {
           type="text"
           placeholder="Example: Anaheim"
           autocomplete="off"
-          value="${w.city || ""}"
+          value="${cityValue}"
+          oninput="updateWeatherCity(this.value)"
         />
 
-        <div class="weather-links-row">
-          <button
-            type="button"
-            class="weather-logo-card"
-            onclick="openWeatherSite('accuweather')"
-          >
-            <img
-              src="img/accuweather-logo.png"
-              alt="AccuWeather logo"
-              class="weather-logo-img"
-            />
+        <div class="weather-links">
+          <button class="weather-card" type="button" onclick="openWeatherSite('accuweather')">
+            <img src="img/accuweather-logo.png" alt="AccuWeather logo" class="weather-logo" />
             <span>Open AccuWeather</span>
           </button>
 
-          <button
-            type="button"
-            class="weather-logo-card"
-            onclick="openWeatherSite('weathercom')"
-          >
-            <img
-              src="img/weather-channel-logo.png"
-              alt="The Weather Channel logo"
-              class="weather-logo-img"
-            />
-            <span>Open Weather Channel</span>
+          <button class="weather-card" type="button" onclick="openWeatherSite('weatherChannel')">
+            <img src="img/weather-channel-logo.png" alt="The Weather Channel logo" class="weather-logo" />
+            <span>Open The Weather Channel</span>
           </button>
         </div>
 
@@ -781,6 +934,10 @@ function render() {
         <button class="btn-secondary" type="button" onclick="goTo('weather')">
           Edit weather and packing
         </button>
+
+        <button class="btn-secondary" type="button" onclick="clearCurrentTrip()" style="margin-top:16px;">
+          Clear trip and start over
+        </button>
       </section>
     `;
   }
@@ -852,7 +1009,7 @@ function highlightSidebar(screenName) {
 // =========================================================
 
 document.addEventListener("DOMContentLoaded", () => {
-  // First render
+  // First render, will show auth or home depending on auth state
   render();
   highlightSidebar(currentScreen);
 
@@ -867,7 +1024,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // Mouse move glow for fun but not required
+    // Mouse move glow for fun, not required
     item.addEventListener("mousemove", event => {
       const rect = item.getBoundingClientRect();
       const x = event.clientX - rect.left;
