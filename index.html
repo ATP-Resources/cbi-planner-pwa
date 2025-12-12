@@ -26,9 +26,14 @@
       </div>
 
       <nav class="sidebar-nav" aria-label="Screens">
-        <button type="button" class="sidebar-item" data-screen="home" aria-label="Home">
-          <i class="fa-solid fa-house"></i>
-          <span>Home</span>
+        <button type="button" class="sidebar-item" data-screen="landing">
+          <i class="fa-solid fa-door-open"></i>
+          <span>Landing</span>
+        </button>
+
+        <button type="button" class="sidebar-item" data-screen="auth">
+          <i class="fa-solid fa-user-shield"></i>
+          <span>Teacher login</span>
         </button>
 
         <button type="button" class="sidebar-item" data-screen="classes">
@@ -36,27 +41,29 @@
           <span>Teacher classes</span>
         </button>
 
-        <button type="button" class="sidebar-item" data-screen="studentPicker">
-          <i class="fa-solid fa-user-graduate"></i>
-          <span>Pick student</span>
+        <div class="sidebar-divider"></div>
+
+        <button type="button" class="sidebar-item" data-screen="studentMode">
+          <i class="fa-solid fa-graduation-cap"></i>
+          <span>Student mode</span>
         </button>
 
         <button type="button" class="sidebar-item" data-screen="planDestination">
           <i class="fa-solid fa-location-dot"></i>
-          <span>Plan new trip</span>
+          <span>Step 1</span>
         </button>
 
         <button type="button" class="sidebar-item" data-screen="mapsInstructions">
           <i class="fa-solid fa-map"></i>
-          <span>Google Maps steps</span>
+          <span>Step 2</span>
         </button>
 
         <button type="button" class="sidebar-item" data-screen="routeDetails">
           <i class="fa-solid fa-bus-simple"></i>
-          <span>Route details</span>
+          <span>Step 3 and 4</span>
         </button>
 
-        <button type="button" class="sidebar-item" data-screen="weather">
+        <button type="button" class="sidebar-item" data-screen="weatherLinks">
           <i class="fa-solid fa-cloud-sun"></i>
           <span>Check weather</span>
         </button>
@@ -65,32 +72,20 @@
           <i class="fa-solid fa-clipboard-list"></i>
           <span>Trip summary</span>
         </button>
-
-        <button type="button" class="sidebar-item" data-screen="past">
-          <i class="fa-solid fa-rotate-left"></i>
-          <span>Past trips</span>
-        </button>
-
-        <button type="button" class="sidebar-item" data-screen="practice">
-          <i class="fa-solid fa-school"></i>
-          <span>Practice maps</span>
-        </button>
       </nav>
     </aside>
 
     <main class="main" aria-live="polite">
       <div id="app" class="app-root">
-        <p>
-          This app needs JavaScript to run. Please enable JavaScript in your browser settings.
-        </p>
+        <p>This app needs JavaScript to run. Please enable JavaScript.</p>
       </div>
     </main>
   </div>
 
-  <!-- Firebase SDKs (compat) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <!-- Firebase CDN (v8) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
   <script src="app.js"></script>
 </body>
