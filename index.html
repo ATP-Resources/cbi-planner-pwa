@@ -9,122 +9,89 @@
     content="CBI Planner app for Adult Transition Program students to plan community based instruction trips."
   />
 
-  <!-- Font Awesome for icons -->
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
     referrerpolicy="no-referrer"
   />
 
-  <!-- Main styles -->
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- App shell: sidebar + main content -->
   <div class="app-shell">
-    <!-- Sidebar navigation (student friendly) -->
     <aside class="sidebar" aria-label="CBI Planner navigation">
       <div class="sidebar-header">
         <i class="fa-solid fa-bus"></i>
         <span>CBI Planner</span>
       </div>
 
-      <!-- Student navigation buttons -->
       <nav class="sidebar-nav" aria-label="Screens">
-        <button
-          type="button"
-          class="sidebar-item"
-          data-screen="home"
-          aria-label="Home"
-        >
+        <button type="button" class="sidebar-item" data-screen="home" aria-label="Home">
           <i class="fa-solid fa-house"></i>
           <span>Home</span>
         </button>
 
-        <button
-          type="button"
-          class="sidebar-item"
-          data-screen="planDestination"
-        >
+        <button type="button" class="sidebar-item" data-screen="classes">
+          <i class="fa-solid fa-chalkboard-user"></i>
+          <span>Teacher classes</span>
+        </button>
+
+        <button type="button" class="sidebar-item" data-screen="studentPicker">
+          <i class="fa-solid fa-user-graduate"></i>
+          <span>Pick student</span>
+        </button>
+
+        <button type="button" class="sidebar-item" data-screen="planDestination">
           <i class="fa-solid fa-location-dot"></i>
           <span>Plan new trip</span>
         </button>
 
-        <button
-          type="button"
-          class="sidebar-item"
-          data-screen="mapsInstructions"
-        >
+        <button type="button" class="sidebar-item" data-screen="mapsInstructions">
           <i class="fa-solid fa-map"></i>
           <span>Google Maps steps</span>
         </button>
 
-        <button
-          type="button"
-          class="sidebar-item"
-          data-screen="routeDetails"
-        >
+        <button type="button" class="sidebar-item" data-screen="routeDetails">
           <i class="fa-solid fa-bus-simple"></i>
           <span>Route details</span>
         </button>
 
-        <button
-          type="button"
-          class="sidebar-item"
-          data-screen="weather"
-        >
+        <button type="button" class="sidebar-item" data-screen="weather">
           <i class="fa-solid fa-cloud-sun"></i>
           <span>Check weather</span>
         </button>
 
-        <button
-          type="button"
-          class="sidebar-item"
-          data-screen="summary"
-        >
+        <button type="button" class="sidebar-item" data-screen="summary">
           <i class="fa-solid fa-clipboard-list"></i>
           <span>Trip summary</span>
         </button>
 
-        <button
-          type="button"
-          class="sidebar-item"
-          data-screen="past"
-        >
+        <button type="button" class="sidebar-item" data-screen="past">
           <i class="fa-solid fa-rotate-left"></i>
           <span>Past trips</span>
         </button>
 
-        <button
-          type="button"
-          class="sidebar-item"
-          data-screen="practice"
-        >
+        <button type="button" class="sidebar-item" data-screen="practice">
           <i class="fa-solid fa-school"></i>
           <span>Practice maps</span>
         </button>
       </nav>
     </aside>
 
-    <!-- Main content area -->
     <main class="main" aria-live="polite">
-      <!-- The JavaScript app will inject screens here -->
       <div id="app" class="app-root">
-        <!-- Fallback content if JS is disabled -->
         <p>
-          This app needs JavaScript to run. Please enable JavaScript in your
-          browser settings.
+          This app needs JavaScript to run. Please enable JavaScript in your browser settings.
         </p>
       </div>
     </main>
   </div>
 
-  <!-- Firebase SDKs (compat version, easy for vanilla JS) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <!-- Firebase SDKs (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-  <!-- Main logic -->
   <script src="app.js"></script>
 </body>
 </html>
