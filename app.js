@@ -1,9 +1,11 @@
 // =========================================================
-// CBI PLANNER APP WITH TEACHER CLASSES + ROSTERS + PAST TRIPS
-// Firebase Auth + Firestore
+// CBI PLANNER APP
+// Landing screen with Teacher and Student modes
+// Teacher mode uses Firebase Auth + Firestore
+// Student mode requires a teacher-selected student on this device
 // =========================================================
 
-// ----------------- FIREBASE SETUP -----------------
+// ----------------- FIREBASE CONFIG -----------------
 
 const firebaseConfig = {
   apiKey: "AIzaSyAC-zl14hzA9itpol-0yhz4NYiSF-aSy4Q",
@@ -20,18 +22,18 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// ----------------- APP STATE -----------------
+// ----------------- STATE -----------------
 
 let currentUser = null;
-let currentScreen = "auth";
+let currentScreen = "landing";
 
-let selectedClassId = null;
-let selectedStudentId = null;
-let selectedStudentName = null;
+// Teacher selected context (stored locally for Student Mode)
+let selectedClassId = localStorage.getItem("cbi_selectedClassId") || null;
+let selectedStudentId = localStorage.getItem("cbi_selectedStudentId") || null;
+let selectedStudentName = localStorage.getItem("cbi_selectedStudentName") || null;
 
 let teacherClassesCache = [];
 let classRosterCache = [];
-let pastTripsCache = []; // [{id, createdAt, tripData}]
 
 // ----------------- TRIP STATE -----------------
 
@@ -81,16 +83,6 @@ let currentTrip = createEmptyTrip();
 
 // ----------------- HELPERS -----------------
 
-function requireAuthOrBounce() {
-  if (!currentUser) {
-    currentScreen = "auth";
-    render();
-    highlightSidebar("home");
-    return false;
-  }
-  return true;
-}
-
 function escapeHtml(text) {
   return String(text || "")
     .replaceAll("&", "&amp;")
@@ -100,17 +92,25 @@ function escapeHtml(text) {
     .replaceAll("'", "&#039;");
 }
 
-function formatTimestamp(ts) {
-  if (!ts) return "Unknown time";
-  try {
-    const d = ts.toDate ? ts.toDate() : new Date(ts);
-    return d.toLocaleString();
-  } catch (e) {
-    return "Unknown time";
-  }
+function setSelectedStudent(classId, studentId, studentName) {
+  selectedClassId = classId;
+  selectedStudentId = studentId;
+  selectedStudentName = studentName;
+
+  localStorage.setItem("cbi_selectedClassId", classId || "");
+  localStorage.setItem("cbi_selectedStudentId", studentId || "");
+  localStorage.setItem("cbi_selectedStudentName", studentName || "");
 }
 
-// ----------------- SIMPLE UPDATERS -----------------
+function clearSelectedStudent() {
+  selectedClassId = null;
+  selectedStudentId = null;
+  selectedStudentName = null;
+
+  localStorage.removeItem("cbi_selectedClassId");
+  localStorage.removeItem("cbi_selectedStudentId");
+  localStorage.removeItem("cbi_selectedStudentName");
+}
 
 function updateTripField(field, value) {
   currentTrip[field] = value;
@@ -140,34 +140,103 @@ function updateWeatherWhatToBring(value) {
   currentTrip.weather.whatToBring = value;
 }
 
-function clearCurrentTrip() {
+function clearTrip() {
   currentTrip = createEmptyTrip();
   render();
 }
 
-// =========================================================
-// FIRESTORE
-// =========================================================
+// ----------------- NAV -----------------
 
-// ----------------- CLASSES -----------------
+function goTo(screenName) {
+  currentScreen = screenName;
+  render();
+  highlightSidebar(screenName);
+}
+
+// ----------------- GOOGLE MAPS -----------------
+
+function openMapsForCurrentTrip() {
+  const origin = "Katella High School, Anaheim, CA";
+  const destination = `${currentTrip.destinationName} ${currentTrip.destinationAddress}`.trim();
+
+  if (!destination) {
+    alert("Please enter a destination name and address first.");
+    return;
+  }
+
+  const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
+    origin
+  )}&destination=${encodeURIComponent(destination)}&travelmode=transit`;
+
+  window.open(url, "_blank");
+}
+
+// ----------------- WEATHER LINKS -----------------
+
+function openWeatherSite(provider) {
+  const cityInput = document.getElementById("weatherCity");
+  const city = cityInput ? cityInput.value.trim() : "";
+
+  if (!city) {
+    alert("Type a city first.");
+    return;
+  }
+
+  currentTrip.weather.city = city;
+
+  let url = "";
+  if (provider === "accuweather") {
+    url = `https://www.accuweather.com/en/search-locations?query=${encodeURIComponent(city)}`;
+  } else if (provider === "weatherChannel") {
+    url = `https://weather.com/search/enhancedlocalsearch?where=${encodeURIComponent(city)}`;
+  }
+
+  window.open(url, "_blank");
+}
+
+// ----------------- PURPOSE SUMMARY -----------------
+
+function renderPurposeSummaryList() {
+  const p = currentTrip.purpose;
+  const items = [];
+
+  if (p.lifeSkills) items.push("Life skills (shopping, ordering, daily living)");
+  if (p.communityAccess) items.push("Community access and navigation");
+  if (p.moneySkills) items.push("Money skills (budgeting, paying, change)");
+  if (p.communication) items.push("Communication and self advocacy");
+  if (p.socialSkills) items.push("Social skills and teamwork");
+  if (p.employmentPrep) items.push("Employment preparation or work skills");
+  if (p.recreationLeisure) items.push("Recreation and leisure in the community");
+  if (p.safetySkills) items.push("Safety skills (street safety, stranger awareness, etc.)");
+  if (p.otherText.trim() !== "") items.push(`Other: ${p.otherText.trim()}`);
+
+  if (!items.length) return "<li>No purposes selected yet.</li>";
+  return items.map(t => `<li>${escapeHtml(t)}</li>`).join("");
+}
+
+// =========================================================
+// TEACHER FIRESTORE (Teacher mode only)
+// Note: This uses a "teachers/{uid}/classes" structure
+// =========================================================
 
 async function loadTeacherClasses() {
   if (!currentUser) return;
 
   const snap = await db
+    .collection("teachers")
+    .doc(currentUser.uid)
     .collection("classes")
-    .where("teacherId", "==", currentUser.uid)
     .orderBy("createdAt", "desc")
     .get();
 
-  teacherClassesCache = snap.docs.map(d => ({
-    id: d.id,
-    ...d.data()
-  }));
+  teacherClassesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 async function createClassFromForm() {
-  if (!requireAuthOrBounce()) return;
+  if (!currentUser) {
+    alert("Please sign in first.");
+    return;
+  }
 
   const nameEl = document.getElementById("className");
   const schoolYearEl = document.getElementById("classSchoolYear");
@@ -190,14 +259,18 @@ async function createClassFromForm() {
   }
 
   try {
-    const ref = await db.collection("classes").add({
-      teacherId: currentUser.uid,
-      name,
-      schoolYear: schoolYear || null,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    const ref = await db
+      .collection("teachers")
+      .doc(currentUser.uid)
+      .collection("classes")
+      .add({
+        name,
+        schoolYear: schoolYear || null,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
 
     selectedClassId = ref.id;
+    localStorage.setItem("cbi_selectedClassId", selectedClassId);
 
     await loadTeacherClasses();
     currentScreen = "classDetail";
@@ -213,53 +286,26 @@ async function createClassFromForm() {
   }
 }
 
-async function deleteClass(classId) {
-  if (!requireAuthOrBounce()) return;
-
-  const ok = confirm("Delete this class? This removes access to roster and trips in the app.");
-  if (!ok) return;
-
-  try {
-    await db.collection("classes").doc(classId).delete();
-
-    if (selectedClassId === classId) {
-      selectedClassId = null;
-      selectedStudentId = null;
-      selectedStudentName = null;
-      classRosterCache = [];
-      pastTripsCache = [];
-    }
-
-    await loadTeacherClasses();
-    currentScreen = "classes";
-    render();
-    highlightSidebar("classes");
-  } catch (e) {
-    console.error(e);
-    alert("Could not delete class. Check Firestore rules or try again.");
-  }
-}
-
-// ----------------- ROSTER -----------------
-
 async function loadClassRoster(classId) {
   if (!currentUser || !classId) return;
 
   const snap = await db
+    .collection("teachers")
+    .doc(currentUser.uid)
     .collection("classes")
     .doc(classId)
     .collection("students")
     .orderBy("createdAt", "asc")
     .get();
 
-  classRosterCache = snap.docs.map(d => ({
-    id: d.id,
-    ...d.data()
-  }));
+  classRosterCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 async function addStudentFromForm() {
-  if (!requireAuthOrBounce()) return;
+  if (!currentUser) {
+    alert("Please sign in first.");
+    return;
+  }
   if (!selectedClassId) {
     alert("Pick a class first.");
     return;
@@ -284,6 +330,8 @@ async function addStudentFromForm() {
 
   try {
     await db
+      .collection("teachers")
+      .doc(currentUser.uid)
       .collection("classes")
       .doc(selectedClassId)
       .collection("students")
@@ -295,10 +343,12 @@ async function addStudentFromForm() {
     if (nameEl) nameEl.value = "";
 
     await loadClassRoster(selectedClassId);
+
     if (msgEl) {
       msgEl.textContent = "Student added.";
       msgEl.style.color = "green";
     }
+
     render();
   } catch (e) {
     console.error(e);
@@ -309,203 +359,36 @@ async function addStudentFromForm() {
   }
 }
 
-async function deleteStudent(studentId) {
-  if (!requireAuthOrBounce()) return;
-  if (!selectedClassId) return;
-
-  const ok = confirm("Delete this student from the roster?");
-  if (!ok) return;
-
-  try {
-    await db
-      .collection("classes")
-      .doc(selectedClassId)
-      .collection("students")
-      .doc(studentId)
-      .delete();
-
-    if (selectedStudentId === studentId) {
-      selectedStudentId = null;
-      selectedStudentName = null;
-      pastTripsCache = [];
-    }
-
-    await loadClassRoster(selectedClassId);
-    render();
-  } catch (e) {
-    console.error(e);
-    alert("Could not delete student. Check Firestore rules or try again.");
+async function openClassDetail(classId) {
+  if (!currentUser) {
+    alert("Please sign in first.");
+    return;
   }
-}
 
-function pickStudent(studentId, studentName) {
-  selectedStudentId = studentId;
-  selectedStudentName = studentName;
-  currentScreen = "planDestination";
+  selectedClassId = classId;
+  localStorage.setItem("cbi_selectedClassId", classId || "");
+
+  await loadClassRoster(selectedClassId);
+
+  currentScreen = "classDetail";
   render();
-  highlightSidebar("studentPicker");
+  highlightSidebar("classes");
 }
 
-// ----------------- TRIPS SAVE AND LOAD -----------------
+function chooseStudentForDevice(studentId) {
+  const student = classRosterCache.find(s => s.id === studentId);
+  if (!student) return;
 
-async function saveTripNow() {
-  if (!requireAuthOrBounce()) return;
+  setSelectedStudent(selectedClassId, studentId, student.name);
 
-  if (!selectedClassId || !selectedStudentId) {
-    alert("Pick a student first. Go to Pick student.");
-    return;
-  }
-
-  const payload = {
-    tripData: currentTrip,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  };
-
-  try {
-    await db
-      .collection("classes")
-      .doc(selectedClassId)
-      .collection("students")
-      .doc(selectedStudentId)
-      .collection("trips")
-      .add(payload);
-
-    alert("Trip saved for this student.");
-  } catch (e) {
-    console.error(e);
-    alert("Could not save trip. Check Firestore rules and try again.");
-  }
-}
-
-async function loadLatestTripForSelectedStudent() {
-  if (!requireAuthOrBounce()) return;
-
-  if (!selectedClassId || !selectedStudentId) {
-    alert("Pick a student first. Go to Pick student.");
-    return;
-  }
-
-  try {
-    const snap = await db
-      .collection("classes")
-      .doc(selectedClassId)
-      .collection("students")
-      .doc(selectedStudentId)
-      .collection("trips")
-      .orderBy("createdAt", "desc")
-      .limit(1)
-      .get();
-
-    if (snap.empty) {
-      alert("No saved trips found for this student yet.");
-      return;
-    }
-
-    const data = snap.docs[0].data();
-    if (data && data.tripData) {
-      currentTrip = data.tripData;
-      alert("Loaded the most recent saved trip for this student.");
-      render();
-    } else {
-      alert("Trip data missing in Firestore document.");
-    }
-  } catch (e) {
-    console.error(e);
-    alert("Could not load trip. Check Firestore rules and try again.");
-  }
-}
-
-// ----------------- PAST TRIPS LIST -----------------
-
-async function loadPastTripsForSelectedStudent() {
-  if (!requireAuthOrBounce()) return;
-
-  if (!selectedClassId || !selectedStudentId) {
-    pastTripsCache = [];
-    return;
-  }
-
-  const snap = await db
-    .collection("classes")
-    .doc(selectedClassId)
-    .collection("students")
-    .doc(selectedStudentId)
-    .collection("trips")
-    .orderBy("createdAt", "desc")
-    .limit(50)
-    .get();
-
-  pastTripsCache = snap.docs.map(d => ({
-    id: d.id,
-    ...d.data()
-  }));
-}
-
-async function openTripById(tripId) {
-  if (!requireAuthOrBounce()) return;
-  if (!selectedClassId || !selectedStudentId) {
-    alert("Pick a student first.");
-    return;
-  }
-
-  try {
-    const doc = await db
-      .collection("classes")
-      .doc(selectedClassId)
-      .collection("students")
-      .doc(selectedStudentId)
-      .collection("trips")
-      .doc(tripId)
-      .get();
-
-    if (!doc.exists) {
-      alert("Trip not found.");
-      return;
-    }
-
-    const data = doc.data();
-    if (data && data.tripData) {
-      currentTrip = data.tripData;
-      alert("Trip loaded. You can edit it now.");
-      currentScreen = "planDestination";
-      render();
-      highlightSidebar("planDestination");
-    } else {
-      alert("Trip data missing.");
-    }
-  } catch (e) {
-    console.error(e);
-    alert("Could not open trip. Check Firestore rules and try again.");
-  }
-}
-
-async function deleteTripById(tripId) {
-  if (!requireAuthOrBounce()) return;
-  if (!selectedClassId || !selectedStudentId) return;
-
-  const ok = confirm("Delete this trip?");
-  if (!ok) return;
-
-  try {
-    await db
-      .collection("classes")
-      .doc(selectedClassId)
-      .collection("students")
-      .doc(selectedStudentId)
-      .collection("trips")
-      .doc(tripId)
-      .delete();
-
-    await loadPastTripsForSelectedStudent();
-    render();
-  } catch (e) {
-    console.error(e);
-    alert("Could not delete trip. Check Firestore rules and try again.");
-  }
+  alert("Student selected for this device. Now click Student mode on the landing page.");
+  currentScreen = "landing";
+  render();
+  highlightSidebar("landing");
 }
 
 // =========================================================
-// AUTH
+// AUTH (Teacher)
 // =========================================================
 
 async function handleTeacherLogin() {
@@ -593,130 +476,17 @@ function signOutTeacher() {
 auth.onAuthStateChanged(async user => {
   currentUser = user || null;
 
-  if (!currentUser) {
-    selectedClassId = null;
-    selectedStudentId = null;
-    selectedStudentName = null;
-    teacherClassesCache = [];
-    classRosterCache = [];
-    pastTripsCache = [];
-    currentTrip = createEmptyTrip();
-    currentScreen = "auth";
-    render();
-    highlightSidebar("home");
-    return;
+  if (currentUser) {
+    try {
+      await loadTeacherClasses();
+    } catch (e) {
+      console.error(e);
+    }
   }
-
-  try {
-    await loadTeacherClasses();
-  } catch (e) {
-    console.error(e);
-  }
-
-  if (currentScreen === "auth") currentScreen = "home";
 
   render();
-  highlightSidebar("home");
+  highlightSidebar(currentScreen);
 });
-
-// =========================================================
-// NAVIGATION
-// =========================================================
-
-function goTo(screenName) {
-  if (!currentUser && screenName !== "auth") {
-    currentScreen = "auth";
-    render();
-    highlightSidebar("home");
-    return;
-  }
-
-  currentScreen = screenName;
-
-  if (screenName === "past") {
-    loadPastTripsForSelectedStudent()
-      .then(() => {
-        render();
-        highlightSidebar("past");
-      })
-      .catch(e => {
-        console.error(e);
-        render();
-        highlightSidebar("past");
-      });
-    return;
-  }
-
-  render();
-  highlightSidebar(screenName);
-}
-
-// =========================================================
-// GOOGLE MAPS
-// =========================================================
-
-function openMapsForCurrentTrip() {
-  const origin = "Katella High School, Anaheim, CA";
-  const destination = `${currentTrip.destinationName} ${currentTrip.destinationAddress}`.trim();
-
-  if (!destination) {
-    alert("Please enter a destination name and address first.");
-    return;
-  }
-
-  const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
-    origin
-  )}&destination=${encodeURIComponent(destination)}&travelmode=transit`;
-
-  window.open(url, "_blank");
-}
-
-// =========================================================
-// WEATHER LINKS
-// =========================================================
-
-function openWeatherSite(provider) {
-  const cityInput = document.getElementById("weatherCity");
-  const city = cityInput ? cityInput.value.trim() : "";
-
-  if (!city) {
-    alert("Type a city first.");
-    return;
-  }
-
-  currentTrip.weather.city = city;
-
-  let url = "";
-  if (provider === "accuweather") {
-    url = `https://www.accuweather.com/en/search-locations?query=${encodeURIComponent(city)}`;
-  } else if (provider === "weatherChannel") {
-    url = `https://weather.com/search/enhancedlocalsearch?where=${encodeURIComponent(city)}`;
-  }
-
-  window.open(url, "_blank");
-}
-
-// =========================================================
-// SUMMARY BUILDER
-// =========================================================
-
-function renderPurposeSummaryList() {
-  const p = currentTrip.purpose;
-  const items = [];
-
-  if (p.lifeSkills) items.push("Life skills (shopping, ordering, daily living)");
-  if (p.communityAccess) items.push("Community access and navigation");
-  if (p.moneySkills) items.push("Money skills (budgeting, paying, change)");
-  if (p.communication) items.push("Communication and self advocacy");
-  if (p.socialSkills) items.push("Social skills and teamwork");
-  if (p.employmentPrep) items.push("Employment preparation or work skills");
-  if (p.recreationLeisure) items.push("Recreation and leisure in the community");
-  if (p.safetySkills) items.push("Safety skills (street safety, stranger awareness, etc.)");
-  if (p.otherText.trim() !== "") items.push(`Other: ${p.otherText.trim()}`);
-
-  if (!items.length) return "<li>No purposes selected yet.</li>";
-  return items.map(t => `<li>${escapeHtml(t)}</li>`).join("");
-}
 
 // =========================================================
 // RENDER
@@ -726,10 +496,58 @@ function render() {
   const app = document.getElementById("app");
   if (!app) return;
 
+  // ------------- LANDING -------------
+  if (currentScreen === "landing") {
+    app.innerHTML = `
+      <section class="screen" aria-labelledby="landingTitle">
+        <h2 id="landingTitle">CBI Planner</h2>
+        <p>Choose Teacher or Student mode.</p>
+
+        <div class="landing-split">
+          <div class="landing-card">
+            <h3><i class="fa-solid fa-user-shield"></i> Teacher</h3>
+            <p class="small-note">
+              Teachers sign in, create classes, add students, and select a student for this device.
+            </p>
+
+            <button class="btn-primary" type="button" onclick="goTo('auth')">
+              Teacher login
+            </button>
+
+            <button class="btn-secondary" type="button" onclick="goTo('classes')">
+              Teacher classes
+            </button>
+          </div>
+
+          <div class="landing-card">
+            <h3><i class="fa-solid fa-graduation-cap"></i> Student mode</h3>
+            <p class="small-note">
+              Student mode works after a teacher selects a student on this device.
+            </p>
+
+            <p class="small-note">
+              Selected student: <strong>${selectedStudentName ? escapeHtml(selectedStudentName) : "None yet"}</strong>
+            </p>
+
+            <button class="btn-primary" type="button" onclick="goTo('studentMode')">
+              Enter student mode
+            </button>
+
+            <button class="btn-secondary" type="button" onclick="clearSelectedStudent(); render();">
+              Clear selected student
+            </button>
+          </div>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  // ------------- TEACHER AUTH -------------
   if (currentScreen === "auth") {
     app.innerHTML = `
       <section class="screen" aria-labelledby="authTitle">
-        <h2 id="authTitle">Teacher sign in</h2>
+        <h2 id="authTitle">Teacher login</h2>
         <p>Sign in. New teachers can create an account.</p>
 
         <label for="authEmail">Email</label>
@@ -741,51 +559,46 @@ function render() {
         <label for="authName">Your name (new accounts)</label>
         <input id="authName" type="text" autocomplete="name" placeholder="Example: Mr. Keating" />
 
-        <div class="auth-buttons">
+        <div class="row">
           <button class="btn-primary" type="button" onclick="handleTeacherLogin()">Sign in</button>
           <button class="btn-secondary" type="button" onclick="handleTeacherSignup()">Create teacher account</button>
         </div>
 
-        <div id="authMessage" class="auth-message"></div>
+        <div class="row">
+          <button class="btn-secondary" type="button" onclick="goTo('landing')">Back to Landing</button>
+          ${currentUser ? `<button class="btn-secondary" type="button" onclick="signOutTeacher()">Sign out</button>` : ""}
+        </div>
+
+        <div id="authMessage" class="small-note"></div>
       </section>
     `;
     return;
   }
 
-  if (currentScreen === "home") {
-    app.innerHTML = `
-      <section class="screen" aria-labelledby="homeTitle">
-        <h2 id="homeTitle">Welcome</h2>
-        <p>CBI Planner teacher mode.</p>
-        <p class="small-note"><strong>Signed in as:</strong> ${escapeHtml(currentUser.email)}</p>
-
-        <div class="row">
-          <button class="btn-primary" type="button" onclick="goTo('classes')">Go to Teacher classes</button>
-          <button class="btn-secondary" type="button" onclick="goTo('studentPicker')">Pick student</button>
-          <button class="btn-secondary" type="button" onclick="goTo('past')">Past trips</button>
-        </div>
-
-        <div class="row">
-          <button class="btn-secondary" type="button" onclick="signOutTeacher()">Sign out</button>
-        </div>
-      </section>
-    `;
-    return;
-  }
-
+  // ------------- TEACHER CLASSES -------------
   if (currentScreen === "classes") {
+    if (!currentUser) {
+      app.innerHTML = `
+        <section class="screen">
+          <h2>Teacher classes</h2>
+          <p>You need to sign in first.</p>
+          <button class="btn-primary" type="button" onclick="goTo('auth')">Go to Teacher login</button>
+          <button class="btn-secondary" type="button" onclick="goTo('landing')">Back to Landing</button>
+        </section>
+      `;
+      return;
+    }
+
     const cards = teacherClassesCache
       .map(c => {
         const title = escapeHtml(c.name || "Untitled class");
         const sub = c.schoolYear ? `School year: ${escapeHtml(c.schoolYear)}` : "School year not set";
         return `
-          <div class="card">
-            <p class="card-title">${title}</p>
-            <p class="card-sub">${sub}</p>
-            <div class="hr"></div>
+          <div class="landing-card">
+            <h3>${title}</h3>
+            <p class="small-note">${sub}</p>
             <div class="row">
-              <button class="btn-primary" type="button" onclick="openClassDetail('${c.id}')">Open roster</button>
-              <button class="btn-danger" type="button" onclick="deleteClass('${c.id}')">Delete</button>
+              <button class="btn-primary" type="button" onclick="openClassDetail('${c.id}')">Open</button>
             </div>
           </div>
         `;
@@ -795,71 +608,67 @@ function render() {
     app.innerHTML = `
       <section class="screen" aria-labelledby="classesTitle">
         <h2 id="classesTitle">Teacher classes</h2>
-        <p>Create a class, then add students to the roster.</p>
+        <p class="small-note">Signed in as: <strong>${escapeHtml(currentUser.email)}</strong></p>
 
-        <button class="btn-primary" type="button" onclick="goTo('classCreate')">Create a new class</button>
+        <div class="landing-card">
+          <h3>Create class</h3>
 
-        <div class="card-grid">
-          ${cards || `<p class="small-note">No classes yet. Click "Create a new class".</p>`}
+          <label for="className">Class name</label>
+          <input id="className" type="text" placeholder="Example: Keating ATP" />
+
+          <label for="classSchoolYear">School year</label>
+          <input id="classSchoolYear" type="text" placeholder="Example: 25-26" />
+
+          <div class="row">
+            <button class="btn-primary" type="button" onclick="createClassFromForm()">Create class</button>
+            <button class="btn-secondary" type="button" onclick="signOutTeacher()">Sign out</button>
+          </div>
+
+          <div id="classCreateMsg" class="small-note"></div>
         </div>
 
-        <button class="btn-secondary" type="button" onclick="goTo('home')">Back to Home</button>
+        <div class="landing-split">
+          ${cards || `<p class="small-note">No classes yet. Create one above.</p>`}
+        </div>
+
+        <button class="btn-secondary" type="button" onclick="goTo('landing')">Back to Landing</button>
       </section>
     `;
     return;
   }
 
-  if (currentScreen === "classCreate") {
-    app.innerHTML = `
-      <section class="screen" aria-labelledby="createClassTitle">
-        <h2 id="createClassTitle">Create class</h2>
-
-        <label for="className">Class name</label>
-        <input id="className" type="text" placeholder="Example: Keating ATP" />
-
-        <label for="classSchoolYear">School year</label>
-        <input id="classSchoolYear" type="text" placeholder="Example: 25-26" />
-
-        <div class="row">
-          <button class="btn-primary" type="button" onclick="createClassFromForm()">Create class</button>
-          <button class="btn-secondary" type="button" onclick="goTo('classes')">Cancel</button>
-        </div>
-
-        <div id="classCreateMsg" class="small-note"></div>
-      </section>
-    `;
-    return;
-  }
-
+  // ------------- CLASS DETAIL -------------
   if (currentScreen === "classDetail") {
+    if (!currentUser || !selectedClassId) {
+      goTo("classes");
+      return;
+    }
+
     const classObj = teacherClassesCache.find(c => c.id === selectedClassId);
     const classTitle = classObj ? escapeHtml(classObj.name) : "Class";
     const classSub = classObj && classObj.schoolYear ? `School year: ${escapeHtml(classObj.schoolYear)}` : "";
 
-    const rosterList = classRosterCache
+    const rosterCards = classRosterCache
       .map(s => {
-        const name = escapeHtml(s.name);
         return `
-          <div class="card">
-            <p class="card-title">${name}</p>
-            <p class="card-sub">Student ID: ${escapeHtml(s.id)}</p>
-            <div class="hr"></div>
-            <div class="row">
-              <button class="btn-primary" type="button" onclick="pickStudent('${s.id}', '${escapeHtml(s.name).replaceAll("'", "\\'")}')">Use this student</button>
-              <button class="btn-danger" type="button" onclick="deleteStudent('${s.id}')">Remove</button>
-            </div>
+          <div class="landing-card">
+            <h3>${escapeHtml(s.name)}</h3>
+            <p class="small-note">Select this student for this device so Student mode works.</p>
+            <button class="btn-primary" type="button" onclick="chooseStudentForDevice('${s.id}')">
+              Select student
+            </button>
           </div>
         `;
       })
       .join("");
 
     app.innerHTML = `
-      <section class="screen" aria-labelledby="classDetailTitle">
-        <h2 id="classDetailTitle">${classTitle}</h2>
-        <p>${classSub}</p>
+      <section class="screen">
+        <h2>${classTitle}</h2>
+        <p class="small-note">${classSub}</p>
 
-        <div class="card">
-          <p class="card-title">Add student to roster</p>
+        <div class="landing-card">
+          <h3>Add student</h3>
 
           <label for="studentName">Student name</label>
           <input id="studentName" type="text" placeholder="Example: Diego" />
@@ -872,126 +681,377 @@ function render() {
           <div id="rosterMsg" class="small-note"></div>
         </div>
 
-        <h3 class="section-title">Roster</h3>
-
-        <div class="card-grid">
-          ${rosterList || `<p class="small-note">No students yet. Add a student above.</p>`}
+        <div class="landing-split">
+          ${rosterCards || `<p class="small-note">No students yet. Add one above.</p>`}
         </div>
       </section>
     `;
     return;
   }
 
-  if (currentScreen === "studentPicker") {
-    const classOptions = teacherClassesCache
-      .map(c => `<option value="${c.id}">${escapeHtml(c.name || "Untitled class")}</option>`)
-      .join("");
-
-    const rosterOptions = classRosterCache
-      .map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`)
-      .join("");
+  // ------------- STUDENT MODE GATE -------------
+  if (currentScreen === "studentMode") {
+    const hasStudent = Boolean(selectedStudentId && selectedStudentName);
 
     app.innerHTML = `
-      <section class="screen" aria-labelledby="pickerTitle">
-        <h2 id="pickerTitle">Pick student</h2>
-        <p>Select a class, then select a student to plan a trip.</p>
-
-        <label for="pickerClass">Class</label>
-        <select id="pickerClass" style="width:100%; max-width:860px; padding:14px; border-radius:14px; font-size:18px;">
-          <option value="">Choose a class</option>
-          ${classOptions}
-        </select>
-
-        <div class="row">
-          <button class="btn-primary" type="button" onclick="pickerLoadRoster()">Load roster</button>
-        </div>
-
-        <label for="pickerStudent">Student</label>
-        <select id="pickerStudent" style="width:100%; max-width:860px; padding:14px; border-radius:14px; font-size:18px;">
-          <option value="">Choose a student</option>
-          ${rosterOptions}
-        </select>
-
-        <div class="row">
-          <button class="btn-primary" type="button" onclick="pickerUseStudent()">Use student</button>
-          <button class="btn-secondary" type="button" onclick="goTo('home')">Back to Home</button>
-        </div>
+      <section class="screen" aria-labelledby="studentModeTitle">
+        <h2 id="studentModeTitle">Student mode</h2>
 
         <p class="small-note">
-          Current student: <strong>${selectedStudentName ? escapeHtml(selectedStudentName) : "None selected"}</strong>
+          Selected student: <strong>${hasStudent ? escapeHtml(selectedStudentName) : "None yet"}</strong>
         </p>
+
+        ${
+          hasStudent
+            ? `
+              <p>You can start your trip plan now.</p>
+
+              <div class="row">
+                <button class="btn-primary" type="button" onclick="goTo('planDestination')">Start Step 1</button>
+                <button class="btn-secondary" type="button" onclick="clearTrip()">Clear trip</button>
+              </div>
+
+              <p class="small-note">
+                Reminder: You will open Google Maps, then type the route details yourself.
+              </p>
+            `
+            : `
+              <p>
+                A teacher needs to select your name on this device first.
+              </p>
+              <ol class="small-note" style="margin-left:18px;">
+                <li>Teacher signs in</li>
+                <li>Teacher opens a class</li>
+                <li>Teacher clicks "Select student"</li>
+                <li>Then you click Student mode</li>
+              </ol>
+
+              <div class="row">
+                <button class="btn-primary" type="button" onclick="goTo('landing')">Back to Landing</button>
+                <button class="btn-secondary" type="button" onclick="goTo('auth')">Teacher login</button>
+              </div>
+            `
+        }
       </section>
     `;
     return;
   }
 
-  // Keep the rest of your screens the same as before:
-  // planDestination, mapsInstructions, routeDetails, weather, summary, past
-  // Nothing else changed for this request.
+  // ------------- STEP 1 -------------
+  if (currentScreen === "planDestination") {
+    if (!selectedStudentId) {
+      goTo("studentMode");
+      return;
+    }
 
-  app.innerHTML = `<p>Screen not found.</p>`;
-}
+    app.innerHTML = `
+      <section class="screen" aria-labelledby="step1Title">
+        <h2 id="step1Title">Step 1 - Basic info</h2>
+        <p>Student: <strong>${escapeHtml(selectedStudentName)}</strong></p>
 
-// ---------------- CLASS OPEN HELPERS ----------------
+        <label for="destName">Destination name</label>
+        <input
+          id="destName"
+          type="text"
+          autocomplete="off"
+          placeholder="Example: Target"
+          value="${escapeHtml(currentTrip.destinationName)}"
+          oninput="updateTripField('destinationName', this.value)"
+        />
 
-async function openClassDetail(classId) {
-  if (!requireAuthOrBounce()) return;
+        <label for="destAddress">Destination address</label>
+        <input
+          id="destAddress"
+          type="text"
+          autocomplete="off"
+          placeholder="Street, city, state"
+          value="${escapeHtml(currentTrip.destinationAddress)}"
+          oninput="updateTripField('destinationAddress', this.value)"
+        />
 
-  selectedClassId = classId;
-  selectedStudentId = null;
-  selectedStudentName = null;
-  pastTripsCache = [];
+        <label for="tripDate">Date of trip</label>
+        <input
+          id="tripDate"
+          type="date"
+          value="${escapeHtml(currentTrip.tripDate)}"
+          oninput="updateTripField('tripDate', this.value)"
+        />
 
-  await loadClassRoster(selectedClassId);
+        <label for="meetTime">Meet time</label>
+        <input
+          id="meetTime"
+          type="time"
+          value="${escapeHtml(currentTrip.meetTime)}"
+          oninput="updateTripField('meetTime', this.value)"
+        />
 
-  currentScreen = "classDetail";
-  render();
-  highlightSidebar("classes");
-}
-
-// ---------------- PICKER HELPERS ----------------
-
-async function pickerLoadRoster() {
-  if (!requireAuthOrBounce()) return;
-
-  const classSelect = document.getElementById("pickerClass");
-  const classId = classSelect ? classSelect.value : "";
-
-  if (!classId) {
-    alert("Choose a class first.");
+        <div class="row">
+          <button class="btn-primary" type="button" onclick="goTo('mapsInstructions')">Go to Step 2</button>
+          <button class="btn-secondary" type="button" onclick="clearTrip()">Clear trip</button>
+        </div>
+      </section>
+    `;
     return;
   }
 
-  selectedClassId = classId;
-  selectedStudentId = null;
-  selectedStudentName = null;
-  pastTripsCache = [];
+  // ------------- STEP 2 -------------
+  if (currentScreen === "mapsInstructions") {
+    if (!selectedStudentId) {
+      goTo("studentMode");
+      return;
+    }
 
-  await loadClassRoster(selectedClassId);
+    app.innerHTML = `
+      <section class="screen" aria-labelledby="step2Title">
+        <h2 id="step2Title">Step 2 - Google Maps steps</h2>
+        <p>Open Google Maps, then come back and type the route details yourself.</p>
 
-  render();
-}
+        <ol style="margin-left:18px; color:#244b55;">
+          <li>Tap "Open Google Maps (Transit)"</li>
+          <li>Confirm starting point is your school</li>
+          <li>Choose transit mode</li>
+          <li>Pick a route</li>
+          <li>Write down bus number, stops, times</li>
+          <li>Come back to Step 3</li>
+        </ol>
 
-function pickerUseStudent() {
-  const studentSelect = document.getElementById("pickerStudent");
-  const studentId = studentSelect ? studentSelect.value : "";
-
-  if (!studentId) {
-    alert("Choose a student.");
+        <div class="row">
+          <button class="btn-primary" type="button" onclick="openMapsForCurrentTrip()">Open Google Maps (Transit)</button>
+          <button class="btn-primary" type="button" onclick="goTo('routeDetails')">Go to Step 3</button>
+          <button class="btn-secondary" type="button" onclick="goTo('planDestination')">Back to Step 1</button>
+        </div>
+      </section>
+    `;
     return;
   }
 
-  const student = classRosterCache.find(s => s.id === studentId);
-  if (!student) {
-    alert("Student not found. Load roster again.");
+  // ------------- STEP 3 and 4 -------------
+  if (currentScreen === "routeDetails") {
+    if (!selectedStudentId) {
+      goTo("studentMode");
+      return;
+    }
+
+    const r = currentTrip.routeThere;
+    const rb = currentTrip.routeBack;
+    const p = currentTrip.purpose;
+
+    app.innerHTML = `
+      <section class="screen" aria-labelledby="step3Title">
+        <h2 id="step3Title">Step 3 - Route details</h2>
+
+        <h3 class="section-title">Route there</h3>
+
+        <label for="busNumber">Bus number</label>
+        <input id="busNumber" type="text" value="${escapeHtml(r.busNumber)}"
+          oninput="updateRouteThereField('busNumber', this.value)" />
+
+        <label for="direction">Direction</label>
+        <input id="direction" type="text" value="${escapeHtml(r.direction)}"
+          oninput="updateRouteThereField('direction', this.value)" />
+
+        <label for="boardStop">Stop where you get on</label>
+        <input id="boardStop" type="text" value="${escapeHtml(r.boardStop)}"
+          oninput="updateRouteThereField('boardStop', this.value)" />
+
+        <label for="exitStop">Stop where you get off</label>
+        <input id="exitStop" type="text" value="${escapeHtml(r.exitStop)}"
+          oninput="updateRouteThereField('exitStop', this.value)" />
+
+        <label for="departTime">Departure time</label>
+        <input id="departTime" type="text" value="${escapeHtml(r.departTime)}"
+          oninput="updateRouteThereField('departTime', this.value)" />
+
+        <label for="arriveTime">Arrival time</label>
+        <input id="arriveTime" type="text" value="${escapeHtml(r.arriveTime)}"
+          oninput="updateRouteThereField('arriveTime', this.value)" />
+
+        <label for="totalTime">Total travel time</label>
+        <input id="totalTime" type="text" value="${escapeHtml(r.totalTime)}"
+          oninput="updateRouteThereField('totalTime', this.value)" />
+
+        <h3 class="section-title">Route back</h3>
+
+        <label for="busNumberBack">Bus number</label>
+        <input id="busNumberBack" type="text" value="${escapeHtml(rb.busNumber)}"
+          oninput="updateRouteBackField('busNumber', this.value)" />
+
+        <label for="directionBack">Direction</label>
+        <input id="directionBack" type="text" value="${escapeHtml(rb.direction)}"
+          oninput="updateRouteBackField('direction', this.value)" />
+
+        <label for="boardStopBack">Stop where you get on</label>
+        <input id="boardStopBack" type="text" value="${escapeHtml(rb.boardStop)}"
+          oninput="updateRouteBackField('boardStop', this.value)" />
+
+        <label for="exitStopBack">Stop where you get off</label>
+        <input id="exitStopBack" type="text" value="${escapeHtml(rb.exitStop)}"
+          oninput="updateRouteBackField('exitStop', this.value)" />
+
+        <label for="departTimeBack">Departure time</label>
+        <input id="departTimeBack" type="text" value="${escapeHtml(rb.departTime)}"
+          oninput="updateRouteBackField('departTime', this.value)" />
+
+        <label for="arriveTimeBack">Arrival time</label>
+        <input id="arriveTimeBack" type="text" value="${escapeHtml(rb.arriveTime)}"
+          oninput="updateRouteBackField('arriveTime', this.value)" />
+
+        <label for="totalTimeBack">Total travel time</label>
+        <input id="totalTimeBack" type="text" value="${escapeHtml(rb.totalTime)}"
+          oninput="updateRouteBackField('totalTime', this.value)" />
+
+        <h3 class="section-title">Step 4 - Why are we going?</h3>
+
+        <label style="display:flex; gap:10px; align-items:center;">
+          <input type="checkbox" ${p.lifeSkills ? "checked" : ""} onchange="togglePurposeField('lifeSkills', this.checked)" />
+          Life skills
+        </label>
+
+        <label style="display:flex; gap:10px; align-items:center;">
+          <input type="checkbox" ${p.communityAccess ? "checked" : ""} onchange="togglePurposeField('communityAccess', this.checked)" />
+          Community access
+        </label>
+
+        <label style="display:flex; gap:10px; align-items:center;">
+          <input type="checkbox" ${p.moneySkills ? "checked" : ""} onchange="togglePurposeField('moneySkills', this.checked)" />
+          Money skills
+        </label>
+
+        <label style="display:flex; gap:10px; align-items:center;">
+          <input type="checkbox" ${p.communication ? "checked" : ""} onchange="togglePurposeField('communication', this.checked)" />
+          Communication
+        </label>
+
+        <label style="display:flex; gap:10px; align-items:center;">
+          <input type="checkbox" ${p.socialSkills ? "checked" : ""} onchange="togglePurposeField('socialSkills', this.checked)" />
+          Social skills
+        </label>
+
+        <label style="display:flex; gap:10px; align-items:center;">
+          <input type="checkbox" ${p.employmentPrep ? "checked" : ""} onchange="togglePurposeField('employmentPrep', this.checked)" />
+          Employment prep
+        </label>
+
+        <label style="display:flex; gap:10px; align-items:center;">
+          <input type="checkbox" ${p.recreationLeisure ? "checked" : ""} onchange="togglePurposeField('recreationLeisure', this.checked)" />
+          Recreation
+        </label>
+
+        <label style="display:flex; gap:10px; align-items:center;">
+          <input type="checkbox" ${p.safetySkills ? "checked" : ""} onchange="togglePurposeField('safetySkills', this.checked)" />
+          Safety skills
+        </label>
+
+        <label for="purposeOther">Other</label>
+        <input id="purposeOther" type="text" value="${escapeHtml(p.otherText)}"
+          oninput="updatePurposeOther(this.value)" />
+
+        <div class="row">
+          <button class="btn-primary" type="button" onclick="goTo('weatherLinks')">Check weather</button>
+          <button class="btn-primary" type="button" onclick="goTo('summary')">Trip summary</button>
+          <button class="btn-secondary" type="button" onclick="goTo('mapsInstructions')">Back to Step 2</button>
+        </div>
+      </section>
+    `;
     return;
   }
 
-  pickStudent(student.id, student.name);
+  // ------------- WEATHER LINKS SCREEN -------------
+  if (currentScreen === "weatherLinks") {
+    if (!selectedStudentId) {
+      goTo("studentMode");
+      return;
+    }
+
+    app.innerHTML = `
+      <section class="screen" aria-labelledby="weatherTitle">
+        <h2 id="weatherTitle">Check weather</h2>
+        <p>Type a city, then click a weather site. After that, write what you will bring.</p>
+
+        <label for="weatherCity">City</label>
+        <input
+          id="weatherCity"
+          type="text"
+          placeholder="Anaheim"
+          value="${escapeHtml(currentTrip.weather.city)}"
+          oninput="updateWeatherCity(this.value)"
+        />
+
+        <div class="weather-grid">
+          <div class="weather-card" role="button" tabindex="0" onclick="openWeatherSite('accuweather')">
+            <img src="images/Accu_weather.png" alt="AccuWeather logo" />
+            <div class="weather-text">
+              <strong>AccuWeather</strong>
+              <span>Open in a new tab</span>
+            </div>
+          </div>
+
+          <div class="weather-card" role="button" tabindex="0" onclick="openWeatherSite('weatherChannel')">
+            <img src="images/Weather_com_Logo.png" alt="Weather.com logo" />
+            <div class="weather-text">
+              <strong>Weather.com</strong>
+              <span>Open in a new tab</span>
+            </div>
+          </div>
+        </div>
+
+        <label for="weatherBring" style="margin-top:16px;">What will you bring?</label>
+        <textarea
+          id="weatherBring"
+          placeholder="Example: jacket, water, umbrella"
+          oninput="updateWeatherWhatToBring(this.value)"
+        >${escapeHtml(currentTrip.weather.whatToBring)}</textarea>
+
+        <div class="row">
+          <button class="btn-primary" type="button" onclick="goTo('summary')">Trip summary</button>
+          <button class="btn-secondary" type="button" onclick="goTo('routeDetails')">Back</button>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  // ------------- SUMMARY -------------
+  if (currentScreen === "summary") {
+    const pHtml = renderPurposeSummaryList();
+
+    app.innerHTML = `
+      <section class="screen" aria-labelledby="summaryTitle">
+        <h2 id="summaryTitle">Trip summary</h2>
+        <p>Student: <strong>${selectedStudentName ? escapeHtml(selectedStudentName) : "None"}</strong></p>
+
+        <h3 class="section-title">Trip basics</h3>
+        <p><strong>Destination:</strong> ${escapeHtml(currentTrip.destinationName) || "-"}</p>
+        <p><strong>Address:</strong> ${escapeHtml(currentTrip.destinationAddress) || "-"}</p>
+        <p><strong>Date:</strong> ${escapeHtml(currentTrip.tripDate) || "-"}</p>
+        <p><strong>Meet time:</strong> ${escapeHtml(currentTrip.meetTime) || "-"}</p>
+
+        <h3 class="section-title">Why are we going?</h3>
+        <ul style="margin-left:18px; color:#244b55;">
+          ${pHtml}
+        </ul>
+
+        <h3 class="section-title">Weather and packing</h3>
+        <p><strong>City:</strong> ${escapeHtml(currentTrip.weather.city) || "-"}</p>
+        <p><strong>Student plan:</strong> ${escapeHtml(currentTrip.weather.whatToBring) || "Not filled in yet."}</p>
+
+        <div class="row">
+          <button class="btn-primary" type="button" onclick="goTo('planDestination')">Edit Step 1</button>
+          <button class="btn-secondary" type="button" onclick="goTo('routeDetails')">Edit Step 3 and 4</button>
+          <button class="btn-secondary" type="button" onclick="goTo('weatherLinks')">Edit weather</button>
+          <button class="btn-secondary" type="button" onclick="clearTrip()">Clear trip</button>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  // Fallback
+  app.innerHTML = `<section class="screen"><h2>Screen not found</h2></section>`;
 }
 
 // =========================================================
-// SIDEBAR HIGHLIGHT AND INIT
+// SIDEBAR
 // =========================================================
 
 function highlightSidebar(screenName) {
@@ -1010,26 +1070,17 @@ function highlightSidebar(screenName) {
 
 document.addEventListener("DOMContentLoaded", () => {
   render();
-  highlightSidebar("home");
+  highlightSidebar(currentScreen);
 
   const sidebarItems = document.querySelectorAll(".sidebar-item");
   sidebarItems.forEach(item => {
     const screen = item.getAttribute("data-screen");
-    item.addEventListener("click", () => {
+
+    item.addEventListener("click", async () => {
       if (!screen) return;
 
-      if (screen === "classes") {
-        loadTeacherClasses()
-          .then(() => {
-            currentScreen = "classes";
-            render();
-            highlightSidebar("classes");
-          })
-          .catch(e => {
-            console.error(e);
-            goTo("classes");
-          });
-        return;
+      if (screen === "classes" && currentUser) {
+        await loadTeacherClasses();
       }
 
       goTo(screen);
