@@ -36,7 +36,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-weight: 700;
+  font-weight: 800;
   font-size: 18px;
   padding: 10px 10px;
 }
@@ -71,7 +71,7 @@ body {
 
 .sidebar-item.active {
   background: rgba(0, 200, 160, 0.65);
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .sidebar-divider {
@@ -112,6 +112,37 @@ body {
   padding: 14px;
 }
 
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 860px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    width: 230px;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .sidebar {
+    width: 100%;
+  }
+
+  .main {
+    padding: 16px;
+  }
+}
+
 /* =========================================================
    TYPOGRAPHY
 ========================================================= */
@@ -119,6 +150,11 @@ body {
 h2 {
   margin: 0 0 10px;
   font-size: 24px;
+  color: #064f58;
+}
+
+h3 {
+  margin: 14px 0 8px;
   color: #064f58;
 }
 
@@ -139,7 +175,7 @@ p {
 label {
   display: block;
   margin-top: 12px;
-  font-weight: 700;
+  font-weight: 800;
   color: #084f58;
 }
 
@@ -161,7 +197,7 @@ textarea {
 .error {
   color: #b00020;
   margin-top: 10px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 /* =========================================================
@@ -176,7 +212,7 @@ textarea {
   border: none;
   background: #0a8a8a;
   color: #fff;
-  font-weight: 800;
+  font-weight: 900;
   font-size: 15px;
   cursor: pointer;
 }
@@ -193,7 +229,7 @@ textarea {
   border: none;
   background: #d2d9dc;
   color: #113a45;
-  font-weight: 700;
+  font-weight: 800;
   font-size: 15px;
   cursor: pointer;
 }
@@ -209,6 +245,13 @@ textarea {
   border-radius: 10px;
 }
 
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
 .google-btn {
   width: 100%;
   margin-top: 12px;
@@ -217,7 +260,7 @@ textarea {
   border: 1px solid #cfdce3;
   background: #fff;
   color: #20363d;
-  font-weight: 800;
+  font-weight: 900;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -258,9 +301,60 @@ textarea {
   color: #4a6068;
 }
 
-.actions {
+/* =========================================================
+   TRIP UI
+========================================================= */
+
+.step-list {
+  padding-left: 18px;
+  margin: 10px 0 0;
+  color: #244b55;
+}
+
+.step-list li {
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.summary-row {
   display: flex;
+  justify-content: space-between;
   gap: 10px;
-  flex-wrap: wrap;
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+.summary-label {
+  font-weight: 800;
+  color: #084f58;
+}
+
+.summary-value {
+  color: #244b55;
+  text-align: right;
+}
+
+.purpose-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-top: 10px;
+}
+
+.purpose-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #083b45;
+}
+
+.purpose-item input {
+  transform: scale(1.2);
 }
