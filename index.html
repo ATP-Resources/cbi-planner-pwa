@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>CBI Planner</title>
+  <title>CBI Trip Planner</title>
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta
     name="description"
-    content="CBI Planner for Adult Transition Program community based instruction planning."
+    content="CBI Trip Planner for Adult Transition Program community based instruction planning."
   />
 
   <link
@@ -16,17 +16,24 @@
     referrerpolicy="no-referrer"
   />
 
+  <link
+    href="https://fonts.googleapis.com/css2?family=Oswald:wght@800&family=Poppins:wght@500;600;700&display=swap"
+    rel="stylesheet"
+  />
+
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
 
-  <div class="sidebar-header">
-  <img
-    class="sidebar-logo"
-    src="img/cbi-trip-planner-logo.png"
-    alt="CBI Trip Planner"
-  />
-</div>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="CBI Trip Planner navigation">
+      <div class="sidebar-header">
+        <img
+          class="sidebar-logo"
+          src="img/cbi-trip-planner-logo.png"
+          alt="CBI Trip Planner"
+        />
+      </div>
 
       <nav class="sidebar-nav" aria-label="Screens">
         <button type="button" class="sidebar-item" data-screen="landing">
@@ -95,4 +102,3 @@
   <script type="module" src="app.js"></script>
 </body>
 </html>
-
