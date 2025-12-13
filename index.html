@@ -31,12 +31,12 @@
           <span>Landing</span>
         </button>
 
-        <button type="button" class="sidebar-item" data-screen="auth">
+        <button type="button" class="sidebar-item" data-screen="teacherAuth">
           <i class="fa-solid fa-user-shield"></i>
           <span>Teacher login</span>
         </button>
 
-        <button type="button" class="sidebar-item" data-screen="classes">
+        <button type="button" class="sidebar-item" data-screen="teacherClasses">
           <i class="fa-solid fa-chalkboard-user"></i>
           <span>Teacher classes</span>
         </button>
@@ -82,11 +82,7 @@
     </main>
   </div>
 
-  <!-- Firebase CDN (v8) -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-
-  <script src="app.js"></script>
+  <!-- IMPORTANT: app.js is modular Firebase (v9+), so it must be loaded as a module -->
+  <script type="module" src="app.js"></script>
 </body>
 </html>
