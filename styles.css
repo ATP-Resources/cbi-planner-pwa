@@ -1,385 +1,122 @@
-/* =========================================================
-   GLOBAL
-========================================================= */
-
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap");
-
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 body {
-  font-family: "Inter", sans-serif;
-  background: linear-gradient(135deg, #d9e6ef 0%, #eef4f8 100%);
-  height: 100vh;
-  overflow: hidden;
+  margin: 0;
+  background: #f4f7f9;
+  color: #123;
 }
-
-/* =========================================================
-   APP SHELL LAYOUT
-========================================================= */
 
 .app-shell {
   display: flex;
   height: 100vh;
 }
 
-/* =========================================================
-   SIDEBAR (Apple Glassmorphism)
-========================================================= */
-
 .sidebar {
-  width: 260px;
-  background: rgba(0, 30, 40, 0.78);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 24px 18px;
-  color: #fff;
+  width: 240px;
+  background: #0a3d62;
+  color: white;
   display: flex;
   flex-direction: column;
-  gap: 18px;
 }
 
 .sidebar-header {
-  font-size: 22px;
-  font-weight: 600;
+  padding: 16px;
+  font-weight: 700;
+  font-size: 18px;
   display: flex;
-  align-items: center;
   gap: 10px;
-  padding-bottom: 8px;
-}
-
-.sidebar-divider {
-  height: 1px;
-  width: 100%;
-  background: rgba(255, 255, 255, 0.14);
-  margin: 10px 0;
+  align-items: center;
 }
 
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 10px;
 }
 
 .sidebar-item {
-  width: 100%;
+  background: none;
   border: none;
-  background: transparent;
-  text-align: left;
+  color: white;
   padding: 14px 16px;
-  border-radius: 14px;
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
   display: flex;
+  gap: 10px;
   align-items: center;
-  gap: 12px;
-  position: relative;
-  overflow: hidden;
-  transition: background 0.25s, transform 0.15s;
+  cursor: pointer;
+  text-align: left;
 }
 
-.sidebar-item i {
-  font-size: 18px;
-  width: 24px;
-  text-align: center;
-}
-
-.sidebar-item:hover {
-  background: rgba(255, 255, 255, 0.18);
-}
-
+.sidebar-item:hover,
 .sidebar-item.active {
-  background: rgba(0, 200, 160, 0.70);
-  font-weight: 600;
+  background: rgba(255,255,255,0.15);
 }
-
-/* Mouse-follow glow effect */
-.sidebar-item::before {
-  content: "";
-  position: absolute;
-  width: 140px;
-  height: 140px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0));
-  top: var(--y);
-  left: var(--x);
-  transform: translate(-50%, -50%);
-  opacity: 0;
-  transition: opacity 0.25s ease;
-  pointer-events: none;
-}
-
-.sidebar-item:hover::before {
-  opacity: 1;
-}
-
-/* =========================================================
-   MAIN CONTENT AREA
-========================================================= */
 
 .main {
   flex: 1;
+  padding: 24px;
   overflow-y: auto;
-  padding: 32px 44px;
 }
 
 .screen {
-  background: #ffffff;
-  max-width: 1100px;
+  max-width: 520px;
   margin: 0 auto;
-  padding: 38px;
-  border-radius: 18px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
-  animation: fadeIn 0.18s ease-out;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+.btn-primary {
+  background: #1e90ff;
+  border: none;
+  color: white;
+  padding: 12px 16px;
+  font-size: 16px;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
-/* =========================================================
-   TYPOGRAPHY
-========================================================= */
-
-h2 {
-  font-size: 28px;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: #064f58;
+.btn-secondary {
+  background: #e2e6ea;
+  border: none;
+  padding: 12px 16px;
+  font-size: 16px;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
-h3.section-title {
-  margin-top: 22px;
-  margin-bottom: 10px;
-  font-size: 20px;
-  font-weight: 600;
-  color: #064f58;
+.google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: white;
+  color: #333;
+  border: 1px solid #ccc;
+  padding: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 15px;
 }
 
-p {
-  margin-bottom: 14px;
-  color: #244b55;
+.google-btn img {
+  width: 18px;
+  height: 18px;
+}
+
+input {
+  width: 100%;
+  padding: 10px;
+  margin: 6px 0 12px;
+  font-size: 15px;
+}
+
+.summary-card {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  margin-top: 14px;
 }
 
 .small-note {
   font-size: 14px;
-  color: #375b65;
-}
-
-/* =========================================================
-   FORM ELEMENTS
-========================================================= */
-
-label {
-  font-weight: 600;
-  margin-top: 14px;
-  display: block;
-  color: #084f58;
-}
-
-input,
-textarea,
-select {
-  width: 100%;
-  padding: 12px 14px;
-  margin-top: 6px;
-  font-size: 15px;
-  border-radius: 10px;
-  border: 1px solid #cfdce3;
-  background: #f8fafb;
-  transition: border 0.15s;
-}
-
-textarea {
-  min-height: 90px;
-  resize: vertical;
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-  border-color: #0ca8a8;
-  background: #fff;
-  outline: none;
-}
-
-/* =========================================================
-   BUTTONS
-========================================================= */
-
-.row {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 14px;
-}
-
-.btn-primary,
-.btn-secondary,
-.btn-danger {
-  padding: 14px;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 16px;
-}
-
-.btn-primary {
-  background: #0a8a8a;
-  color: #ffffff;
-  transition: background 0.2s, transform 0.15s;
-}
-
-.btn-primary:hover {
-  background: #087474;
-}
-
-.btn-primary:active {
-  transform: scale(0.98);
-}
-
-.btn-secondary {
-  background: #d2d9dc;
-  color: #113a45;
-  transition: background 0.2s, transform 0.15s;
-}
-
-.btn-secondary:hover {
-  background: #c4cbce;
-}
-
-.btn-secondary:active {
-  transform: scale(0.98);
-}
-
-.btn-danger {
-  background: #d94b4b;
-  color: #ffffff;
-}
-
-.btn-danger:hover {
-  background: #bf3d3d;
-}
-
-/* =========================================================
-   LANDING PAGE
-========================================================= */
-
-.landing-split {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  margin-top: 18px;
-}
-
-.landing-card {
-  border: 1px solid #dde5ea;
-  border-radius: 16px;
-  padding: 18px;
-  background: #f5fafb;
-}
-
-.landing-card h3 {
-  color: #064f58;
-  margin-bottom: 6px;
-}
-
-.landing-card p {
-  margin-bottom: 12px;
-}
-
-/* =========================================================
-   WEATHER LOGO BUTTONS
-========================================================= */
-
-.weather-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-  margin-top: 12px;
-}
-
-.weather-card {
-  border: 1px solid #dde5ea;
-  background: #f5fafb;
-  border-radius: 16px;
-  padding: 14px;
-  cursor: pointer;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
-}
-
-.weather-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
-  background: #ffffff;
-}
-
-.weather-card img {
-  width: 52px;
-  height: 52px;
-  object-fit: contain;
-  border-radius: 10px;
-  background: #fff;
-  border: 1px solid #dde5ea;
-}
-
-.weather-card .weather-text strong {
-  display: block;
-  color: #064f58;
-  margin-bottom: 2px;
-}
-
-.weather-card .weather-text span {
-  font-size: 14px;
-  color: #244b55;
-}
-
-/* =========================================================
-   RESPONSIVE
-========================================================= */
-
-@media (max-width: 900px) {
-  .sidebar {
-    width: 220px;
-  }
-}
-
-@media (max-width: 760px) {
-  .app-shell {
-    flex-direction: column;
-  }
-
-  .sidebar {
-    width: 100%;
-    flex-direction: row;
-    overflow-x: auto;
-    gap: 10px;
-  }
-
-  .sidebar-nav {
-    flex-direction: row;
-    gap: 10px;
-  }
-
-  .sidebar-divider {
-    display: none;
-  }
-
-  .main {
-    padding: 18px;
-  }
-
-  .landing-split {
-    grid-template-columns: 1fr;
-  }
+  color: #555;
 }
