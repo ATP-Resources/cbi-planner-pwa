@@ -1,273 +1,307 @@
 /* =========================================================
-   ROOT VARIABLES
+   CBI Trip Planner
+   Unified palette + two column layout
+   Keeps existing app structure working
    ========================================================= */
 
+/* 1) Root Variables */
 :root {
-  --bg-main: #0f7f86;
-  --bg-sidebar: #06343c;
-  --bg-card: #ffffff;
-  --bg-accent: #1aa489;
+  --color-dark-bg: #1c363c;
+  --color-light-bg: #f8f8f8;
+  --color-accent: #1aa489;
 
-  --text-main: #0b2f34;
-  --text-light: #ffffff;
-  --text-muted: #c7e3e6;
+  --color-text-light: #ffffff;
+  --color-text-dark: #333333;
 
-  --danger: #b00020;
+  --font-cbi: "Oswald", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  --font-planner: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 
-  --radius: 14px;
-  --radius-sm: 10px;
-
-  --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, Helvetica, Arial, sans-serif;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --shadow-1: 0 8px 20px rgba(0, 0, 0, 0.12);
+  --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.16);
 }
 
-/* =========================================================
-   GLOBAL RESET
-   ========================================================= */
-
+/* 2) Base */
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
+  height: 100%;
   margin: 0;
-  font-family: var(--font-main);
-  background: var(--bg-main);
-  color: var(--text-main);
 }
 
-/* =========================================================
-   APP SHELL LAYOUT
-   ========================================================= */
+body {
+  font-family: var(--font-planner);
+  background: var(--color-light-bg);
+  color: var(--color-text-dark);
+}
 
+/* 3) App Shell */
 .app-shell {
   display: flex;
   min-height: 100vh;
 }
 
-/* =========================================================
-   SIDEBAR
-   ========================================================= */
-
+/* 4) Sidebar */
 .sidebar {
-  width: 260px;
-  background: var(--bg-sidebar);
-  color: var(--text-light);
-  display: flex;
-  flex-direction: column;
+  width: 270px;
+  flex-shrink: 0;
+  background: var(--color-dark-bg);
+  color: var(--color-text-light);
+  padding: 14px 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* --- Sidebar logo header --- */
+/* Sidebar Header */
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 14px 12px;
+  padding: 10px 10px 14px 10px;
+  gap: 10px;
 }
 
+/* If you are using the uploaded image logo */
 .sidebar-logo {
   width: 100%;
   max-width: 210px;
   height: auto;
   display: block;
   object-fit: contain;
+
+  /* Helps when the logo has a white box background */
+  border-radius: 10px;
 }
 
-/* --- Sidebar nav --- */
+/* If you still show icon + text instead of an image */
+.sidebar-header i {
+  font-size: 22px;
+  color: var(--color-text-light);
+}
+
+.sidebar-header span {
+  font-family: var(--font-cbi);
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  font-size: 22px;
+}
+
+/* Sidebar Nav */
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  padding: 8px;
-  gap: 4px;
+  gap: 8px;
+  padding: 6px 8px;
 }
 
 .sidebar-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.15);
-  margin: 10px 6px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 10px 8px;
 }
 
+/* Sidebar buttons */
 .sidebar-item {
-  position: relative;
-  border: none;
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
   background: transparent;
-  color: var(--text-light);
-  padding: 12px 14px;
-  border-radius: var(--radius-sm);
+  color: var(--color-text-light);
+  padding: 12px 12px;
   cursor: pointer;
-  text-align: left;
+
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 15px;
-  transition: background 0.15s ease;
+
+  font-size: 16px;
+  line-height: 1.1;
+
+  transition: background 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
 }
 
 .sidebar-item i {
-  width: 18px;
+  width: 22px;
   text-align: center;
+  opacity: 0.95;
 }
 
 .sidebar-item:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.sidebar-item:active {
+  transform: translateY(1px);
 }
 
 .sidebar-item.active {
-  background: var(--bg-accent);
-  color: #ffffff;
+  background: var(--color-accent);
+  color: var(--color-text-light);
+  box-shadow: var(--shadow-1);
 }
 
-/* =========================================================
-   MAIN CONTENT
-   ========================================================= */
-
+/* 5) Main content area */
 .main {
   flex: 1;
-  padding: 24px;
-  overflow-y: auto;
+  background: var(--color-light-bg);
+  padding: 36px 40px;
 }
 
+/* The app root where screens render */
 .app-root {
-  max-width: 920px;
+  max-width: 980px;
 }
 
-/* =========================================================
-   SCREENS
-   ========================================================= */
+/* Generic screen container */
+.screen {
+  background: transparent;
+}
 
+/* Headings */
 .screen h2 {
-  margin-top: 0;
-  font-size: 30px;
+  font-family: var(--font-cbi);
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin: 0 0 12px 0;
+  font-size: 44px;
 }
 
-.screen p {
-  margin-top: 8px;
+/* Paragraph helpers */
+.small-note {
+  color: rgba(0, 0, 0, 0.65);
+  margin: 10px 0 0 0;
 }
 
-/* =========================================================
-   CARDS
-   ========================================================= */
-
+/* 6) Cards, inputs, buttons */
 .summary-card {
-  background: var(--bg-card);
-  border-radius: var(--radius);
-  padding: 16px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  padding: 16px 18px;
 }
 
 .summary-row {
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 6px;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.summary-row:last-child {
+  border-bottom: 0;
 }
 
 .summary-label {
-  font-weight: 600;
+  min-width: 110px;
+  color: rgba(0, 0, 0, 0.7);
 }
 
 .summary-value {
-  color: #333;
-}
-
-/* =========================================================
-   BUTTONS
-   ========================================================= */
-
-button {
-  font-family: inherit;
-}
-
-.btn-primary {
-  background: var(--bg-accent);
-  color: #ffffff;
-  border: none;
-  padding: 12px 18px;
-  border-radius: var(--radius-sm);
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.btn-primary:hover {
-  filter: brightness(1.05);
-}
-
-.btn-secondary {
-  background: #e9f6f7;
-  color: var(--text-main);
-  border: none;
-  padding: 12px 18px;
-  border-radius: var(--radius-sm);
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.btn-secondary:hover {
-  background: #d6eef0;
-}
-
-/* =========================================================
-   FORMS
-   ========================================================= */
-
-label {
-  display: block;
-  margin-top: 14px;
-  margin-bottom: 4px;
   font-weight: 600;
 }
 
-input {
+label {
+  display: block;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+input,
+select,
+textarea {
   width: 100%;
-  padding: 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid #ccc;
-  font-size: 15px;
-}
-
-input:focus {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
   outline: none;
-  border-color: var(--bg-accent);
+  font-size: 16px;
+  background: #fff;
 }
 
-/* =========================================================
-   TEXT HELPERS
-   ========================================================= */
-
-.small-note {
-  font-size: 13px;
-  color: var(--text-muted);
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(26, 164, 137, 0.8);
+  box-shadow: 0 0 0 4px rgba(26, 164, 137, 0.18);
 }
 
-.error-text {
-  color: var(--danger);
-  margin-top: 10px;
+/* Primary, Secondary buttons (used by your app.js) */
+.btn-primary,
+.btn-secondary {
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.05s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
-/* =========================================================
-   RESPONSIVE
-   ========================================================= */
-
-@media (max-width: 900px) {
-  .sidebar {
-    width: 220px;
-  }
+.btn-primary {
+  background: var(--color-accent);
+  color: var(--color-text-light);
+  box-shadow: var(--shadow-1);
 }
 
+.btn-primary:hover {
+  box-shadow: var(--shadow-2);
+}
+
+.btn-secondary {
+  background: #ffffff;
+  color: var(--color-text-dark);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+}
+
+.btn-secondary:hover {
+  box-shadow: var(--shadow-1);
+}
+
+.btn-primary:active,
+.btn-secondary:active {
+  transform: translateY(1px);
+}
+
+/* 7) Landing page "mode buttons" look */
+.mode-buttons-container {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.mode-button {
+  padding: 12px 30px;
+  border: 2px solid var(--color-accent);
+  background: transparent;
+  color: var(--color-accent);
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 14px;
+  transition: background 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+}
+
+.mode-button.active {
+  background: var(--color-accent);
+  color: var(--color-text-light);
+  box-shadow: var(--shadow-1);
+}
+
+/* 8) Responsive: keep sidebar on the left (Chromebook friendly) */
 @media (max-width: 700px) {
-  .app-shell {
-    flex-direction: column;
-  }
-
   .sidebar {
-    width: 100%;
+    width: 250px;
   }
 
-  .sidebar-nav {
-    flex-direction: row;
-    flex-wrap: wrap;
+  .main {
+    padding: 24px 18px;
   }
 
-  .sidebar-item {
-    flex: 1 1 45%;
+  .screen h2 {
+    font-size: 34px;
   }
 }
