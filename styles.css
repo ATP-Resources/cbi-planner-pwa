@@ -1,307 +1,216 @@
 /* =========================================================
-   CBI Trip Planner
-   Unified palette + two column layout
-   Keeps existing app structure working
+   ROOT VARIABLES
    ========================================================= */
 
-/* 1) Root Variables */
 :root {
-  --color-dark-bg: #1c363c;
-  --color-light-bg: #f8f8f8;
-  --color-accent: #1aa489;
+  --color-dark-bg: #1C363C;
+  --color-accent: #1AA489;
+  --color-light-bg: #F8F8F8;
 
-  --color-text-light: #ffffff;
+  --color-text-light: #FFFFFF;
   --color-text-dark: #333333;
 
-  --font-cbi: "Oswald", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  --font-planner: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-
-  --radius-lg: 16px;
-  --radius-md: 12px;
-  --shadow-1: 0 8px 20px rgba(0, 0, 0, 0.12);
-  --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.16);
+  --font-cbi: 'Oswald', sans-serif;
+  --font-planner: 'Poppins', sans-serif;
 }
 
-/* 2) Base */
+/* =========================================================
+   GLOBAL RESET
+   ========================================================= */
+
 * {
   box-sizing: border-box;
 }
 
 html,
 body {
-  height: 100%;
   margin: 0;
-}
-
-body {
+  padding: 0;
+  height: 100%;
   font-family: var(--font-planner);
-  background: var(--color-light-bg);
-  color: var(--color-text-dark);
+  background-color: var(--color-light-bg);
 }
 
-/* 3) App Shell */
+/* =========================================================
+   APP LAYOUT
+   ========================================================= */
+
 .app-shell {
   display: flex;
   min-height: 100vh;
 }
 
-/* 4) Sidebar */
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
 .sidebar {
-  width: 270px;
-  flex-shrink: 0;
-  background: var(--color-dark-bg);
+  width: 260px;
+  background-color: var(--color-dark-bg);
   color: var(--color-text-light);
-  padding: 14px 10px;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
 }
 
-/* Sidebar Header */
+/* =========================================================
+   SIDEBAR LOGO HEADER
+   ========================================================= */
+
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 10px 14px 10px;
-  gap: 10px;
+  padding: 16px 12px;
+  background-color: transparent; /* IMPORTANT */
 }
 
-/* If you are using the uploaded image logo */
+/* Logo image itself */
 .sidebar-logo {
-  width: 100%;
   max-width: 210px;
+  width: 100%;
   height: auto;
   display: block;
+  background-color: transparent; /* IMPORTANT */
   object-fit: contain;
-
-  /* Helps when the logo has a white box background */
-  border-radius: 10px;
 }
 
-/* If you still show icon + text instead of an image */
-.sidebar-header i {
-  font-size: 22px;
-  color: var(--color-text-light);
-}
+/* =========================================================
+   SIDEBAR NAVIGATION
+   ========================================================= */
 
-.sidebar-header span {
-  font-family: var(--font-cbi);
-  font-weight: 800;
-  letter-spacing: -0.5px;
-  font-size: 22px;
-}
-
-/* Sidebar Nav */
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 6px 8px;
+  padding: 8px 0;
 }
 
 .sidebar-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.12);
-  margin: 10px 8px;
+  background-color: rgba(255, 255, 255, 0.15);
+  margin: 10px 12px;
 }
 
-/* Sidebar buttons */
+/* Nav buttons */
 .sidebar-item {
-  width: 100%;
-  border: 0;
-  border-radius: 14px;
-  background: transparent;
+  background: none;
+  border: none;
   color: var(--color-text-light);
-  padding: 12px 12px;
-  cursor: pointer;
-
+  padding: 12px 16px;
+  text-align: left;
   display: flex;
   align-items: center;
   gap: 12px;
-
-  font-size: 16px;
-  line-height: 1.1;
-
-  transition: background 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+  font-size: 15px;
+  font-family: var(--font-planner);
+  transition: background-color 0.15s ease;
 }
 
 .sidebar-item i {
-  width: 22px;
+  width: 18px;
   text-align: center;
-  opacity: 0.95;
 }
 
 .sidebar-item:hover {
-  background: rgba(255, 255, 255, 0.09);
-}
-
-.sidebar-item:active {
-  transform: translateY(1px);
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-item.active {
-  background: var(--color-accent);
-  color: var(--color-text-light);
-  box-shadow: var(--shadow-1);
+  background-color: var(--color-accent);
+  color: #ffffff;
 }
 
-/* 5) Main content area */
+/* =========================================================
+   MAIN CONTENT AREA
+   ========================================================= */
+
 .main {
-  flex: 1;
-  background: var(--color-light-bg);
-  padding: 36px 40px;
+  flex-grow: 1;
+  background-color: var(--color-light-bg);
+  padding: 32px 40px;
 }
 
-/* The app root where screens render */
 .app-root {
-  max-width: 980px;
+  max-width: 1100px;
 }
 
-/* Generic screen container */
-.screen {
-  background: transparent;
-}
+/* =========================================================
+   HEADINGS
+   ========================================================= */
 
-/* Headings */
-.screen h2 {
+h1,
+h2,
+h3 {
   font-family: var(--font-cbi);
-  font-weight: 800;
-  letter-spacing: -0.5px;
-  margin: 0 0 12px 0;
-  font-size: 44px;
+  color: var(--color-text-dark);
 }
 
-/* Paragraph helpers */
-.small-note {
-  color: rgba(0, 0, 0, 0.65);
-  margin: 10px 0 0 0;
+p {
+  color: #555;
+  line-height: 1.5;
 }
 
-/* 6) Cards, inputs, buttons */
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.btn-primary {
+  background-color: var(--color-accent);
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  font-size: 15px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-accent);
+  border: 2px solid var(--color-accent);
+  padding: 10px 18px;
+  font-size: 15px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-primary:hover,
+.btn-secondary:hover {
+  opacity: 0.9;
+}
+
+/* =========================================================
+   CARDS
+   ========================================================= */
+
 .summary-card {
-  background: #ffffff;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
-  padding: 16px 18px;
+  background-color: #ffffff;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
 }
 
-.summary-row {
-  display: flex;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+.small-note {
+  font-size: 13px;
+  color: #777;
 }
 
-.summary-row:last-child {
-  border-bottom: 0;
-}
-
-.summary-label {
-  min-width: 110px;
-  color: rgba(0, 0, 0, 0.7);
-}
-
-.summary-value {
-  font-weight: 600;
-}
+/* =========================================================
+   FORM ELEMENTS
+   ========================================================= */
 
 label {
   display: block;
-  margin-top: 12px;
+  margin-top: 14px;
   margin-bottom: 6px;
   font-weight: 600;
 }
 
-input,
-select,
-textarea {
+input {
   width: 100%;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  outline: none;
-  font-size: 16px;
-  background: #fff;
-}
-
-input:focus,
-select:focus,
-textarea:focus {
-  border-color: rgba(26, 164, 137, 0.8);
-  box-shadow: 0 0 0 4px rgba(26, 164, 137, 0.18);
-}
-
-/* Primary, Secondary buttons (used by your app.js) */
-.btn-primary,
-.btn-secondary {
-  border: 0;
-  border-radius: 14px;
-  padding: 12px 18px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: transform 0.05s ease, box-shadow 0.15s ease, background 0.15s ease;
-}
-
-.btn-primary {
-  background: var(--color-accent);
-  color: var(--color-text-light);
-  box-shadow: var(--shadow-1);
-}
-
-.btn-primary:hover {
-  box-shadow: var(--shadow-2);
-}
-
-.btn-secondary {
-  background: #ffffff;
-  color: var(--color-text-dark);
-  border: 1px solid rgba(0, 0, 0, 0.14);
-}
-
-.btn-secondary:hover {
-  box-shadow: var(--shadow-1);
-}
-
-.btn-primary:active,
-.btn-secondary:active {
-  transform: translateY(1px);
-}
-
-/* 7) Landing page "mode buttons" look */
-.mode-buttons-container {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 18px;
-}
-
-.mode-button {
-  padding: 12px 30px;
-  border: 2px solid var(--color-accent);
-  background: transparent;
-  color: var(--color-accent);
-  font-weight: 700;
-  font-size: 16px;
-  cursor: pointer;
-  border-radius: 14px;
-  transition: background 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
-}
-
-.mode-button.active {
-  background: var(--color-accent);
-  color: var(--color-text-light);
-  box-shadow: var(--shadow-1);
-}
-
-/* 8) Responsive: keep sidebar on the left (Chromebook friendly) */
-@media (max-width: 700px) {
-  .sidebar {
-    width: 250px;
-  }
-
-  .main {
-    padding: 24px 18px;
-  }
-
-  .screen h2 {
-    font-size: 34px;
-  }
+  padding: 10px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
 }
