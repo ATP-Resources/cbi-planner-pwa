@@ -4,11 +4,9 @@
   <meta charset="UTF-8" />
   <title>CBI Planner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta
-    name="description"
-    content="CBI Planner app for Adult Transition Program students to plan community based instruction trips."
-  />
+  <meta name="description" content="CBI Planner for Adult Transition Program students" />
 
+  <!-- Font Awesome -->
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
@@ -17,72 +15,41 @@
 
   <link rel="stylesheet" href="styles.css" />
 </head>
+
 <body>
   <div class="app-shell">
-    <aside class="sidebar" aria-label="CBI Planner navigation">
+    <aside class="sidebar">
       <div class="sidebar-header">
         <i class="fa-solid fa-bus"></i>
         <span>CBI Planner</span>
       </div>
 
-      <nav class="sidebar-nav" aria-label="Screens">
-        <button type="button" class="sidebar-item" data-screen="landing">
+      <nav class="sidebar-nav">
+        <button class="sidebar-item" data-screen="landing">
           <i class="fa-solid fa-door-open"></i>
           <span>Landing</span>
         </button>
 
-        <button type="button" class="sidebar-item" data-screen="teacherAuth">
+        <button class="sidebar-item" data-screen="teacherAuth">
           <i class="fa-solid fa-user-shield"></i>
           <span>Teacher login</span>
         </button>
 
-        <button type="button" class="sidebar-item" data-screen="teacherClasses">
+        <button class="sidebar-item" data-screen="teacherClasses">
           <i class="fa-solid fa-chalkboard-user"></i>
           <span>Teacher classes</span>
-        </button>
-
-        <div class="sidebar-divider"></div>
-
-        <button type="button" class="sidebar-item" data-screen="studentMode">
-          <i class="fa-solid fa-graduation-cap"></i>
-          <span>Student mode</span>
-        </button>
-
-        <button type="button" class="sidebar-item" data-screen="planDestination">
-          <i class="fa-solid fa-location-dot"></i>
-          <span>Step 1</span>
-        </button>
-
-        <button type="button" class="sidebar-item" data-screen="mapsInstructions">
-          <i class="fa-solid fa-map"></i>
-          <span>Step 2</span>
-        </button>
-
-        <button type="button" class="sidebar-item" data-screen="routeDetails">
-          <i class="fa-solid fa-bus-simple"></i>
-          <span>Step 3 and 4</span>
-        </button>
-
-        <button type="button" class="sidebar-item" data-screen="weatherLinks">
-          <i class="fa-solid fa-cloud-sun"></i>
-          <span>Check weather</span>
-        </button>
-
-        <button type="button" class="sidebar-item" data-screen="summary">
-          <i class="fa-solid fa-clipboard-list"></i>
-          <span>Trip summary</span>
         </button>
       </nav>
     </aside>
 
-    <main class="main" aria-live="polite">
+    <main class="main">
       <div id="app" class="app-root">
-        <p>This app needs JavaScript to run. Please enable JavaScript.</p>
+        <p>This app requires JavaScript.</p>
       </div>
     </main>
   </div>
 
-  <!-- IMPORTANT: app.js is modular Firebase (v9+), so it must be loaded as a module -->
+  <!-- Firebase modular app -->
   <script type="module" src="app.js"></script>
 </body>
 </html>
