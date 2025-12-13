@@ -4,9 +4,8 @@
   <meta charset="UTF-8" />
   <title>CBI Planner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="CBI Planner for Adult Transition Program students" />
+  <meta name="description" content="CBI Planner platform for teachers and students." />
 
-  <!-- Font Awesome -->
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
@@ -18,38 +17,56 @@
 
 <body>
   <div class="app-shell">
-    <aside class="sidebar">
+    <aside class="sidebar" aria-label="Navigation">
       <div class="sidebar-header">
         <i class="fa-solid fa-bus"></i>
         <span>CBI Planner</span>
       </div>
 
-      <nav class="sidebar-nav">
-        <button class="sidebar-item" data-screen="landing">
+      <nav class="sidebar-nav" aria-label="Screens">
+        <button type="button" class="sidebar-item" data-screen="landing">
           <i class="fa-solid fa-door-open"></i>
           <span>Landing</span>
         </button>
 
-        <button class="sidebar-item" data-screen="teacherAuth">
+        <div class="sidebar-divider"></div>
+
+        <button type="button" class="sidebar-item" data-screen="teacherAuth">
           <i class="fa-solid fa-user-shield"></i>
           <span>Teacher login</span>
         </button>
 
-        <button class="sidebar-item" data-screen="teacherClasses">
+        <button type="button" class="sidebar-item" data-screen="teacherClasses">
           <i class="fa-solid fa-chalkboard-user"></i>
           <span>Teacher classes</span>
+        </button>
+
+        <button type="button" class="sidebar-item" data-screen="classDetail">
+          <i class="fa-solid fa-users"></i>
+          <span>Class roster</span>
+        </button>
+
+        <div class="sidebar-divider"></div>
+
+        <button type="button" class="sidebar-item" data-screen="studentAuth">
+          <i class="fa-solid fa-graduation-cap"></i>
+          <span>Student login</span>
+        </button>
+
+        <button type="button" class="sidebar-item" data-screen="studentHome">
+          <i class="fa-solid fa-id-card"></i>
+          <span>Student home</span>
         </button>
       </nav>
     </aside>
 
-    <main class="main">
+    <main class="main" aria-live="polite">
       <div id="app" class="app-root">
         <p>This app requires JavaScript.</p>
       </div>
     </main>
   </div>
 
-  <!-- Firebase modular app -->
   <script type="module" src="app.js"></script>
 </body>
 </html>
