@@ -1,7 +1,7 @@
 /* =========================================================
    CBI TRIP PLANNER APP
    Firebase Auth + Firestore
-   Teacher classes + Student login + Auto profile + Auto class assignment
+   Teacher classes + Class roster + Student login auto-assign
    ========================================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -59,10 +59,20 @@ const db = getFirestore(firebaseApp);
 let currentScreen = "landing";
 let authUser = null;
 
+// Teacher classes
 let teacherClasses = [];
 let unsubscribeClasses = null;
 
-let studentProfile = null; // /students/{uid}
+// Selected class for roster
+let selectedClassId = null;
+let selectedClassMeta = null;
+
+// Roster realtime
+let rosterList = [];
+let unsubscribeRoster = null;
+
+// Student profile
+let studentProfile = null;
 
 /* =========================================================
    DOM HELPERS
@@ -221,16 +231,11 @@ async function ensureStudentProfileAndAutoAssign(user) {
     await setDoc(studentRef, base, { merge: true });
   }
 
-  // Re-read so we have the newest data
   let profileSnap = await getDoc(studentRef);
   let profile = profileSnap.exists() ? profileSnap.data() : null;
 
-  // If already assigned, done
   if (profile?.teacherId && profile?.classId) return profile;
 
-  // Auto-assign by finding roster doc that matches the student's email
-  // Roster path: /teachers/{teacherId}/classes/{classId}/roster/{rosterId}
-  // Roster doc must include: { email: "student@email" }
   const studentEmail = (user.email || "").toLowerCase().trim();
   if (!studentEmail) return profile;
 
@@ -241,27 +246,17 @@ async function ensureStudentProfileAndAutoAssign(user) {
   );
 
   const rosterSnap = await getDocs(rosterQ);
-  if (rosterSnap.empty) {
-    // Not found yet. Teacher needs to add the student to a class roster first.
-    return profile;
-  }
+  if (rosterSnap.empty) return profile;
 
   const rosterDoc = rosterSnap.docs[0];
-  const rosterPath = rosterDoc.ref.path;
-
-  // Parse teacherId and classId from the path:
+  const parts = rosterDoc.ref.path.split("/");
   // teachers/{teacherId}/classes/{classId}/roster/{rosterId}
-  const parts = rosterPath.split("/");
   const teacherId = parts[1];
   const classId = parts[3];
 
   await setDoc(
     studentRef,
-    {
-      teacherId,
-      classId,
-      assignedAt: serverTimestamp()
-    },
+    { teacherId, classId, assignedAt: serverTimestamp() },
     { merge: true }
   );
 
@@ -279,7 +274,10 @@ async function appSignOut() {
   try {
     await signOut(auth);
     cleanupTeacherRealtime();
+    cleanupRosterRealtime();
     studentProfile = null;
+    selectedClassId = null;
+    selectedClassMeta = null;
     goTo("landing");
   } catch (err) {
     console.error(err);
@@ -384,6 +382,105 @@ async function deleteClass(classId) {
 }
 
 /* =========================================================
+   FIRESTORE: CLASS ROSTER
+   Path: /teachers/{teacherUid}/classes/{classId}/roster/{rosterId}
+   ========================================================= */
+
+function cleanupRosterRealtime() {
+  if (unsubscribeRoster) {
+    unsubscribeRoster();
+    unsubscribeRoster = null;
+  }
+  rosterList = [];
+}
+
+function startRosterRealtime(teacherUid, classId) {
+  cleanupRosterRealtime();
+  if (!teacherUid || !classId) return;
+
+  const rosterRef = collection(db, "teachers", teacherUid, "classes", classId, "roster");
+  const q = query(rosterRef, orderBy("createdAt", "desc"));
+
+  unsubscribeRoster = onSnapshot(
+    q,
+    snapshot => {
+      rosterList = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (currentScreen === "classRoster") renderClassRosterScreen();
+    },
+    err => {
+      console.error(err);
+      if (currentScreen === "classRoster") {
+        setError("rosterError", err?.message || "Could not load roster. Check rules.");
+      }
+    }
+  );
+}
+
+function openRosterForClass(classId) {
+  if (!authUser) return goTo("teacherAuth");
+
+  const found = teacherClasses.find(c => c.id === classId) || null;
+  selectedClassId = classId;
+  selectedClassMeta = found;
+
+  startRosterRealtime(authUser.uid, classId);
+  goTo("classRoster");
+}
+
+async function addStudentToRoster() {
+  setError("rosterError", "");
+
+  if (!authUser || !selectedClassId) {
+    setError("rosterError", "No class selected.");
+    return;
+  }
+
+  const emailRaw = ($("rosterEmail")?.value || "").trim();
+  const nameRaw = ($("rosterName")?.value || "").trim();
+
+  const email = emailRaw.toLowerCase();
+  if (!email) {
+    setError("rosterError", "Student email is required.");
+    return;
+  }
+  if (!email.includes("@")) {
+    setError("rosterError", "Enter a valid email address.");
+    return;
+  }
+
+  try {
+    const rosterRef = collection(db, "teachers", authUser.uid, "classes", selectedClassId, "roster");
+    await addDoc(rosterRef, {
+      email,
+      name: nameRaw,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    if ($("rosterEmail")) $("rosterEmail").value = "";
+    if ($("rosterName")) $("rosterName").value = "";
+  } catch (err) {
+    console.error(err);
+    setError("rosterError", err?.message || "Could not add student.");
+  }
+}
+
+async function removeStudentFromRoster(rosterId) {
+  if (!authUser || !selectedClassId) return;
+
+  const ok = confirm("Remove this student from the roster?");
+  if (!ok) return;
+
+  try {
+    const ref = doc(db, "teachers", authUser.uid, "classes", selectedClassId, "roster", rosterId);
+    await deleteDoc(ref);
+  } catch (err) {
+    console.error(err);
+    alert(err?.message || "Could not remove student.");
+  }
+}
+
+/* =========================================================
    RENDER
    ========================================================= */
 
@@ -392,6 +489,7 @@ function render() {
   if (currentScreen === "teacherAuth") return renderTeacherAuthScreen();
   if (currentScreen === "teacherClasses") return renderTeacherClassesScreen();
   if (currentScreen === "createClass") return renderCreateClassScreen();
+  if (currentScreen === "classRoster") return renderClassRosterScreen();
   if (currentScreen === "studentAuth") return renderStudentAuthScreen();
   if (currentScreen === "studentHome") return renderStudentHomeScreen();
 
@@ -408,10 +506,6 @@ function renderLandingScreen() {
         <button class="btn-primary" type="button" id="btnTeacher">Teacher</button>
         <button class="btn-secondary" type="button" id="btnStudent">Student</button>
       </div>
-
-      <p class="small-note" style="margin-top:14px;">
-        Students should sign in with their school Google account.
-      </p>
     </section>
   `);
 
@@ -519,6 +613,7 @@ function renderTeacherClassesScreen() {
               <h4 style="margin-top:0; margin-bottom:6px;">${name}</h4>
               ${sub}
               <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+                <button class="btn-primary" type="button" data-roster="${c.id}">Roster</button>
                 <button class="btn-secondary" type="button" data-rename="${c.id}">Rename</button>
                 <button class="btn-secondary" type="button" data-delete="${c.id}">Delete</button>
               </div>
@@ -541,19 +636,18 @@ function renderTeacherClassesScreen() {
       <p id="classesError" style="color:#b00020; margin-top:10px;"></p>
 
       <div style="margin-top:16px;">${listHtml}</div>
-
-      <div class="summary-card" style="margin-top:16px;">
-        <h4 style="margin-top:0;">Student auto assignment tip</h4>
-        <p class="small-note">
-          Students will be auto-assigned when their email exists in a class roster.
-          Next step after this is adding a roster screen for each class.
-        </p>
-      </div>
     </section>
   `);
 
   $("btnCreateClass")?.addEventListener("click", () => goTo("createClass"));
   $("btnSignOut")?.addEventListener("click", appSignOut);
+
+  document.querySelectorAll("[data-roster]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-roster");
+      if (id) openRosterForClass(id);
+    });
+  });
 
   document.querySelectorAll("[data-rename]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -594,6 +688,82 @@ function renderCreateClassScreen() {
 
   $("btnSaveClass")?.addEventListener("click", createClassFromForm);
   $("btnCancelClass")?.addEventListener("click", () => goTo("teacherClasses"));
+}
+
+function renderClassRosterScreen() {
+  if (!authUser) return goTo("teacherAuth");
+  if (!selectedClassId) return goTo("teacherClasses");
+
+  const classTitle = escapeHtml(selectedClassMeta?.name || "Class roster");
+  const classYear = escapeHtml(selectedClassMeta?.schoolYear || "");
+  const sub = classYear ? `<div class="small-note">School year: ${classYear}</div>` : "";
+
+  const rosterHtml = rosterList.length
+    ? rosterList
+        .map(s => {
+          const name = escapeHtml(s.name || "");
+          const email = escapeHtml(s.email || "");
+          const showName = name ? `<div><strong>${name}</strong></div>` : "";
+          return `
+            <div class="summary-card" style="margin-bottom:12px;">
+              ${showName}
+              <div class="small-note">${email}</div>
+              <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+                <button class="btn-secondary" type="button" data-remove="${s.id}">Remove</button>
+              </div>
+            </div>
+          `;
+        })
+        .join("")
+    : `<p class="small-note">No students yet. Add student emails below.</p>`;
+
+  setAppHtml(`
+    <section class="screen" aria-labelledby="rosterTitle">
+      <h2 id="rosterTitle">${classTitle}</h2>
+      ${sub}
+
+      <div class="summary-card" style="margin-top:14px;">
+        <h4 style="margin-top:0;">Add student</h4>
+
+        <label for="rosterEmail">Student email (required)</label>
+        <input id="rosterEmail" type="email" placeholder="Example: 123456@student.auhsd.us" autocomplete="off" />
+
+        <label for="rosterName">Student name (optional)</label>
+        <input id="rosterName" type="text" placeholder="Example: Beau K." autocomplete="off" />
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
+          <button class="btn-primary" type="button" id="btnAddStudent">Add to roster</button>
+          <button class="btn-secondary" type="button" id="btnBackClasses">Back to classes</button>
+        </div>
+
+        <p id="rosterError" style="color:#b00020; margin-top:10px;"></p>
+
+        <p class="small-note" style="margin-top:10px;">
+          Students will auto-land in this class when they log in and their email matches a roster entry.
+        </p>
+      </div>
+
+      <div style="margin-top:16px;">
+        <h3 style="margin-bottom:10px;">Roster</h3>
+        ${rosterHtml}
+      </div>
+    </section>
+  `);
+
+  $("btnAddStudent")?.addEventListener("click", addStudentToRoster);
+  $("btnBackClasses")?.addEventListener("click", () => {
+    cleanupRosterRealtime();
+    selectedClassId = null;
+    selectedClassMeta = null;
+    goTo("teacherClasses");
+  });
+
+  document.querySelectorAll("[data-remove]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-remove");
+      if (id) removeStudentFromRoster(id);
+    });
+  });
 }
 
 function renderStudentAuthScreen() {
@@ -665,12 +835,8 @@ function renderStudentHomeScreen() {
                 <span class="summary-label">Class ID:</span>
                 <span class="summary-value">${escapeHtml(studentProfile.classId)}</span>
               </div>
-              <div class="summary-row">
-                <span class="summary-label">Teacher ID:</span>
-                <span class="summary-value">${escapeHtml(studentProfile.teacherId)}</span>
-              </div>
               <p class="small-note" style="margin-top:10px;">
-                Next upgrade will show the class name and your saved trips.
+                Next: we connect trip steps and save trips.
               </p>
             </div>
           `
@@ -709,12 +875,10 @@ function wireSidebar() {
     item.addEventListener("click", () => {
       if (!screen) return;
 
-      // Protect teacher screens
       if (screen === "teacherClasses" || screen === "createClass") {
         if (!authUser) return goTo("teacherAuth");
       }
 
-      // Protect student home
       if (screen === "studentHome") {
         if (!authUser) return goTo("studentAuth");
       }
@@ -741,7 +905,10 @@ onAuthStateChanged(auth, async user => {
 
   if (!authUser) {
     cleanupTeacherRealtime();
+    cleanupRosterRealtime();
     studentProfile = null;
+    selectedClassId = null;
+    selectedClassMeta = null;
 
     if (currentScreen !== "landing") goTo("landing");
     else render();
@@ -749,24 +916,17 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
-  // If signed in, keep teacher classes realtime available
-  // and also build student profile if the user goes to student screens.
   try {
-    // Teacher profile is safe to upsert even if user is a student,
-    // but if you prefer, we can add domain checking later.
     await ensureTeacherProfile(authUser);
     startTeacherClassesRealtime(authUser.uid);
 
-    // Always ensure student profile too, because students will sign in themselves.
     studentProfile = await ensureStudentProfileAndAutoAssign(authUser);
 
-    // If they just signed in from student login, send them to student home.
     if (currentScreen === "studentAuth") {
       goTo("studentHome");
       return;
     }
 
-    // If they just signed in from teacher login, send them to teacher classes.
     if (currentScreen === "teacherAuth" || currentScreen === "landing") {
       goTo("teacherClasses");
       return;
