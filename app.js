@@ -2,7 +2,12 @@
    CBI TRIP PLANNER APP
    Firebase Auth + Firestore
    Teacher classes + roster + student auto-assign
-   Teacher roster shows assignment status + view student trips
+   Student trip planning steps + save trips to:
+     /students/{uid}/trips/{tripId}
+   ========================================================= */
+
+/* =========================================================
+   FIREBASE IMPORTS (MODULAR SDK)
    ========================================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -60,31 +65,44 @@ const db = getFirestore(firebaseApp);
 let currentScreen = "landing";
 let authUser = null;
 
-// Teacher classes
+/* ---------- Teacher state ---------- */
+
 let teacherClasses = [];
 let unsubscribeClasses = null;
 
-// Selected class for roster
 let selectedClassId = null;
 let selectedClassMeta = null;
 
-// Roster realtime
 let rosterList = [];
 let unsubscribeRoster = null;
 
-// Roster status map (email -> status info)
-let rosterStatusMap = {}; // { [emailLower]: { found, studentUid, assignedToThisClass, assignedElsewhere, classId, teacherId } }
+let rosterStatusMap = {}; // emailLower -> status info
 
-// Student profile (current signed-in user if they are a student)
+let selectedStudent = null; // { uid, email, name }
+let studentTripsForTeacher = [];
+let unsubscribeTeacherStudentTrips = null;
+
+let selectedTripForTeacher = null;
+
+/* ---------- Student state ---------- */
+
 let studentProfile = null;
 
-// Teacher viewing a student's trips
-let selectedStudent = null; // { uid, email, name }
+// Current trip object the student is editing
+let currentTrip = buildEmptyTrip();
+
+// Track whether student is editing an existing saved trip
+let currentTripMeta = {
+  id: null, // Firestore tripId if editing
+  loadedFromFirestore: false
+};
+
+// Realtime list of the signed-in student's trips
 let studentTrips = [];
 let unsubscribeStudentTrips = null;
 
-// Teacher viewing a single trip
-let selectedTrip = null; // { id, ...data }
+// When student opens a trip from past trips
+let selectedTripForStudent = null;
 
 /* =========================================================
    DOM HELPERS
@@ -105,9 +123,9 @@ function escapeHtml(value) {
 }
 
 function setAppHtml(html) {
-  const appRoot = $("app");
-  if (!appRoot) return;
-  appRoot.innerHTML = html;
+  const root = $("app");
+  if (!root) return;
+  root.innerHTML = html;
 }
 
 function setError(id, message) {
@@ -141,6 +159,137 @@ function highlightSidebar(screenName) {
 }
 
 /* =========================================================
+   TRIP DATA MODEL
+   ========================================================= */
+
+function buildEmptyTrip() {
+  return {
+    // Step 1
+    destinationName: "",
+    destinationAddress: "",
+    tripDate: "",
+    meetTime: "",
+
+    // Step 3 route there
+    routeThere: {
+      busNumber: "",
+      direction: "",
+      boardStop: "",
+      exitStop: "",
+      departTime: "",
+      arriveTime: "",
+      totalTime: ""
+    },
+
+    // Step 3 route back
+    routeBack: {
+      busNumber: "",
+      direction: "",
+      boardStop: "",
+      exitStop: "",
+      departTime: "",
+      arriveTime: "",
+      totalTime: ""
+    },
+
+    // Step 4 purpose
+    purpose: {
+      lifeSkills: false,
+      communityAccess: false,
+      moneySkills: false,
+      communication: false,
+      socialSkills: false,
+      employmentPrep: false,
+      recreationLeisure: false,
+      safetySkills: false,
+      otherText: ""
+    },
+
+    // Optional weather planning notes (student decides)
+    weather: {
+      city: "",
+      notes: ""
+    }
+  };
+}
+
+function clearCurrentTrip() {
+  currentTrip = buildEmptyTrip();
+  currentTripMeta = { id: null, loadedFromFirestore: false };
+}
+
+/* =========================================================
+   STUDENT TRIP FIELD UPDATERS
+   ========================================================= */
+
+function updateTripField(field, value) {
+  currentTrip[field] = value;
+}
+
+function updateRouteThereField(field, value) {
+  currentTrip.routeThere[field] = value;
+}
+
+function updateRouteBackField(field, value) {
+  currentTrip.routeBack[field] = value;
+}
+
+function togglePurposeField(field, checked) {
+  currentTrip.purpose[field] = checked;
+}
+
+function updatePurposeOther(value) {
+  currentTrip.purpose.otherText = value;
+}
+
+function updateWeatherField(field, value) {
+  currentTrip.weather[field] = value;
+}
+
+/* =========================================================
+   GOOGLE MAPS
+   ========================================================= */
+
+function openMapsForCurrentTrip() {
+  const origin = "Katella High School, Anaheim, CA";
+  const destination = `${currentTrip.destinationName} ${currentTrip.destinationAddress}`.trim();
+
+  if (!destination) {
+    alert("Please enter a destination name and address first.");
+    return;
+  }
+
+  const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
+    origin
+  )}&destination=${encodeURIComponent(destination)}&travelmode=transit`;
+
+  window.open(url, "_blank");
+}
+
+/* =========================================================
+   PURPOSE SUMMARY BUILDER
+   ========================================================= */
+
+function renderPurposeSummaryList() {
+  const p = currentTrip.purpose;
+  const items = [];
+
+  if (p.lifeSkills) items.push("Life skills (shopping, ordering, daily living)");
+  if (p.communityAccess) items.push("Community access and navigation");
+  if (p.moneySkills) items.push("Money skills (budgeting, paying, change)");
+  if (p.communication) items.push("Communication and self advocacy");
+  if (p.socialSkills) items.push("Social skills and teamwork");
+  if (p.employmentPrep) items.push("Employment preparation or work skills");
+  if (p.recreationLeisure) items.push("Recreation and leisure in the community");
+  if (p.safetySkills) items.push("Safety skills (street safety, stranger awareness, etc.)");
+
+  if (String(p.otherText || "").trim() !== "") items.push(`Other: ${String(p.otherText).trim()}`);
+
+  if (!items.length) return "<li>No purposes selected yet.</li>";
+  return items.map(t => `<li>${escapeHtml(t)}</li>`).join("");
+}
+
+/* =========================================================
    AUTH: TEACHER
    ========================================================= */
 
@@ -157,7 +306,6 @@ async function ensureTeacherProfile(user) {
   };
 
   if (!snap.exists()) payload.createdAt = serverTimestamp();
-
   await setDoc(teacherRef, payload, { merge: true });
 }
 
@@ -174,7 +322,6 @@ async function teacherSignInWithGoogle() {
 
 async function teacherCreateAccountEmail() {
   setError("teacherAuthError", "");
-
   const email = ($("teacherEmail")?.value || "").trim();
   const pass = $("teacherPassword")?.value || "";
   const name = ($("teacherName")?.value || "").trim();
@@ -195,7 +342,6 @@ async function teacherCreateAccountEmail() {
 
 async function teacherSignInEmail() {
   setError("teacherAuthError", "");
-
   const email = ($("teacherEmail")?.value || "").trim();
   const pass = $("teacherPassword")?.value || "";
 
@@ -248,14 +394,16 @@ async function ensureStudentProfileAndAutoAssign(user) {
   let profileSnap = await getDoc(studentRef);
   let profile = profileSnap.exists() ? profileSnap.data() : null;
 
+  // Already assigned
   if (profile?.teacherId && profile?.classId) return profile;
 
-  const studentEmail = (user.email || "").toLowerCase().trim();
-  if (!studentEmail) return profile;
+  // Try auto-assign based on roster email match
+  const emailLower = String(user.email || "").toLowerCase().trim();
+  if (!emailLower) return profile;
 
   const rosterQ = query(
     collectionGroup(db, "roster"),
-    where("email", "==", studentEmail),
+    where("email", "==", emailLower),
     limit(1)
   );
 
@@ -268,11 +416,7 @@ async function ensureStudentProfileAndAutoAssign(user) {
   const teacherId = parts[1];
   const classId = parts[3];
 
-  await setDoc(
-    studentRef,
-    { teacherId, classId, assignedAt: serverTimestamp() },
-    { merge: true }
-  );
+  await setDoc(studentRef, { teacherId, classId, assignedAt: serverTimestamp() }, { merge: true });
 
   profileSnap = await getDoc(studentRef);
   profile = profileSnap.exists() ? profileSnap.data() : profile;
@@ -281,7 +425,7 @@ async function ensureStudentProfileAndAutoAssign(user) {
 }
 
 /* =========================================================
-   SIGN OUT
+   SIGN OUT AND CLEANUP
    ========================================================= */
 
 function cleanupTeacherRealtime() {
@@ -301,26 +445,39 @@ function cleanupRosterRealtime() {
   rosterStatusMap = {};
 }
 
+function cleanupTeacherStudentTripsRealtime() {
+  if (unsubscribeTeacherStudentTrips) {
+    unsubscribeTeacherStudentTrips();
+    unsubscribeTeacherStudentTrips = null;
+  }
+  studentTripsForTeacher = [];
+  selectedStudent = null;
+  selectedTripForTeacher = null;
+}
+
 function cleanupStudentTripsRealtime() {
   if (unsubscribeStudentTrips) {
     unsubscribeStudentTrips();
     unsubscribeStudentTrips = null;
   }
   studentTrips = [];
-  selectedStudent = null;
-  selectedTrip = null;
+  selectedTripForStudent = null;
 }
 
 async function appSignOut() {
   try {
     await signOut(auth);
+
     cleanupTeacherRealtime();
     cleanupRosterRealtime();
+    cleanupTeacherStudentTripsRealtime();
     cleanupStudentTripsRealtime();
 
     studentProfile = null;
     selectedClassId = null;
     selectedClassMeta = null;
+
+    clearCurrentTrip();
 
     goTo("landing");
   } catch (err) {
@@ -331,7 +488,6 @@ async function appSignOut() {
 
 /* =========================================================
    FIRESTORE: TEACHER CLASSES
-   Path: /teachers/{teacherUid}/classes/{classId}
    ========================================================= */
 
 function startTeacherClassesRealtime(teacherUid) {
@@ -350,7 +506,7 @@ function startTeacherClassesRealtime(teacherUid) {
     err => {
       console.error(err);
       if (currentScreen === "teacherClasses") {
-        setError("classesError", err?.message || "Could not load classes. Check Firestore rules.");
+        setError("classesError", err?.message || "Could not load classes. Check rules.");
       }
     }
   );
@@ -405,7 +561,6 @@ async function renameClass(classId) {
 
 async function deleteClass(classId) {
   if (!authUser) return;
-
   const ok = confirm("Delete this class?");
   if (!ok) return;
 
@@ -420,7 +575,6 @@ async function deleteClass(classId) {
 
 /* =========================================================
    FIRESTORE: CLASS ROSTER
-   Path: /teachers/{teacherUid}/classes/{classId}/roster/{rosterId}
    ========================================================= */
 
 function startRosterRealtime(teacherUid, classId) {
@@ -434,7 +588,6 @@ function startRosterRealtime(teacherUid, classId) {
     q,
     snapshot => {
       rosterList = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      // After roster refresh, update assignment status map
       refreshRosterAssignmentStatuses().then(() => {
         if (currentScreen === "classRoster") renderClassRosterScreen();
       });
@@ -451,9 +604,8 @@ function startRosterRealtime(teacherUid, classId) {
 function openRosterForClass(classId) {
   if (!authUser) return goTo("teacherAuth");
 
-  const found = teacherClasses.find(c => c.id === classId) || null;
   selectedClassId = classId;
-  selectedClassMeta = found;
+  selectedClassMeta = teacherClasses.find(c => c.id === classId) || null;
 
   startRosterRealtime(authUser.uid, classId);
   goTo("classRoster");
@@ -461,11 +613,7 @@ function openRosterForClass(classId) {
 
 async function addStudentToRoster() {
   setError("rosterError", "");
-
-  if (!authUser || !selectedClassId) {
-    setError("rosterError", "No class selected.");
-    return;
-  }
+  if (!authUser || !selectedClassId) return;
 
   const emailRaw = ($("rosterEmail")?.value || "").trim();
   const nameRaw = ($("rosterName")?.value || "").trim();
@@ -499,7 +647,6 @@ async function addStudentToRoster() {
 
 async function removeStudentFromRoster(rosterId) {
   if (!authUser || !selectedClassId) return;
-
   const ok = confirm("Remove this student from the roster?");
   if (!ok) return;
 
@@ -513,8 +660,7 @@ async function removeStudentFromRoster(rosterId) {
 }
 
 /* =========================================================
-   ROSTER STATUS: ASSIGNED OR NOT
-   Checks /students by email
+   ROSTER STATUS LOOKUP
    ========================================================= */
 
 function chunkArray(arr, size) {
@@ -525,7 +671,6 @@ function chunkArray(arr, size) {
 
 async function refreshRosterAssignmentStatuses() {
   rosterStatusMap = {};
-
   if (!authUser || !selectedClassId) return;
 
   const emails = rosterList
@@ -534,7 +679,6 @@ async function refreshRosterAssignmentStatuses() {
 
   if (!emails.length) return;
 
-  // Firestore "in" queries support up to 10 values, so chunk by 10.
   const chunks = chunkArray([...new Set(emails)], 10);
 
   for (const chunk of chunks) {
@@ -542,7 +686,6 @@ async function refreshRosterAssignmentStatuses() {
       const qStudents = query(collection(db, "students"), where("email", "in", chunk));
       const snap = await getDocs(qStudents);
 
-      // Mark found students
       snap.docs.forEach(d => {
         const data = d.data() || {};
         const email = String(data.email || "").toLowerCase().trim();
@@ -564,7 +707,6 @@ async function refreshRosterAssignmentStatuses() {
         };
       });
 
-      // Mark missing students as not found
       chunk.forEach(email => {
         if (!rosterStatusMap[email]) {
           rosterStatusMap[email] = {
@@ -579,7 +721,6 @@ async function refreshRosterAssignmentStatuses() {
       });
     } catch (err) {
       console.error("Roster status lookup failed:", err);
-      // Fail soft: just leave map entries empty for that chunk
       chunk.forEach(email => {
         if (!rosterStatusMap[email]) {
           rosterStatusMap[email] = {
@@ -597,29 +738,24 @@ async function refreshRosterAssignmentStatuses() {
 }
 
 /* =========================================================
-   TEACHER: VIEW STUDENT TRIPS
-   Path: /students/{studentUid}/trips/{tripId}
+   TEACHER: VIEW STUDENT TRIPS (READ ONLY)
    ========================================================= */
 
 function openTeacherStudentTrips(studentUid, email, name) {
   if (!authUser) return goTo("teacherAuth");
   if (!studentUid) return;
 
-  cleanupStudentTripsRealtime();
+  cleanupTeacherStudentTripsRealtime();
 
-  selectedStudent = {
-    uid: studentUid,
-    email: email || "",
-    name: name || ""
-  };
+  selectedStudent = { uid: studentUid, email: email || "", name: name || "" };
 
   const tripsRef = collection(db, "students", studentUid, "trips");
   const qTrips = query(tripsRef, orderBy("createdAt", "desc"));
 
-  unsubscribeStudentTrips = onSnapshot(
+  unsubscribeTeacherStudentTrips = onSnapshot(
     qTrips,
     snap => {
-      studentTrips = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      studentTripsForTeacher = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       if (currentScreen === "teacherStudentTrips") renderTeacherStudentTripsScreen();
     },
     err => {
@@ -634,17 +770,122 @@ function openTeacherStudentTrips(studentUid, email, name) {
 }
 
 function openTeacherTripDetails(tripId) {
-  const found = studentTrips.find(t => t.id === tripId) || null;
-  selectedTrip = found;
+  const found = studentTripsForTeacher.find(t => t.id === tripId) || null;
+  selectedTripForTeacher = found;
   goTo("teacherTripDetails");
 }
 
 /* =========================================================
-   RENDER
+   STUDENT: TRIPS REALTIME + SAVE
+   ========================================================= */
+
+function startStudentTripsRealtime(studentUid) {
+  cleanupStudentTripsRealtime();
+  if (!studentUid) return;
+
+  const tripsRef = collection(db, "students", studentUid, "trips");
+  const qTrips = query(tripsRef, orderBy("createdAt", "desc"));
+
+  unsubscribeStudentTrips = onSnapshot(
+    qTrips,
+    snap => {
+      studentTrips = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (currentScreen === "studentPastTrips") renderStudentPastTripsScreen();
+    },
+    err => {
+      console.error(err);
+      if (currentScreen === "studentPastTrips") {
+        setError("studentTripsError", err?.message || "Could not load your trips.");
+      }
+    }
+  );
+}
+
+function buildTripPayloadForSave() {
+  return {
+    destinationName: currentTrip.destinationName || "",
+    destinationAddress: currentTrip.destinationAddress || "",
+    tripDate: currentTrip.tripDate || "",
+    meetTime: currentTrip.meetTime || "",
+
+    routeThere: { ...currentTrip.routeThere },
+    routeBack: { ...currentTrip.routeBack },
+    purpose: { ...currentTrip.purpose },
+    weather: { ...currentTrip.weather },
+
+    updatedAt: serverTimestamp()
+  };
+}
+
+async function saveStudentTrip() {
+  if (!authUser) {
+    alert("Please sign in first.");
+    return;
+  }
+
+  setError("studentSaveError", "");
+
+  try {
+    const payload = buildTripPayloadForSave();
+    const tripsRef = collection(db, "students", authUser.uid, "trips");
+
+    // If this trip was loaded from Firestore, update it
+    if (currentTripMeta.id) {
+      const tripRef = doc(db, "students", authUser.uid, "trips", currentTripMeta.id);
+      await setDoc(
+        tripRef,
+        { ...payload, id: currentTripMeta.id },
+        { merge: true }
+      );
+      alert("Trip updated and saved.");
+      return;
+    }
+
+    // Otherwise create a new trip
+    const docRef = await addDoc(tripsRef, {
+      ...payload,
+      createdAt: serverTimestamp()
+    });
+
+    currentTripMeta.id = docRef.id;
+    currentTripMeta.loadedFromFirestore = true;
+
+    alert("Trip saved.");
+  } catch (err) {
+    console.error(err);
+    setError("studentSaveError", err?.message || "Could not save trip. Check rules.");
+  }
+}
+
+function openStudentTripFromPast(tripId) {
+  const found = studentTrips.find(t => t.id === tripId) || null;
+  if (!found) return;
+
+  // Load into currentTrip
+  currentTrip = {
+    destinationName: found.destinationName || "",
+    destinationAddress: found.destinationAddress || "",
+    tripDate: found.tripDate || "",
+    meetTime: found.meetTime || "",
+    routeThere: { ...(found.routeThere || buildEmptyTrip().routeThere) },
+    routeBack: { ...(found.routeBack || buildEmptyTrip().routeBack) },
+    purpose: { ...(found.purpose || buildEmptyTrip().purpose) },
+    weather: { ...(found.weather || buildEmptyTrip().weather) }
+  };
+
+  currentTripMeta = { id: found.id, loadedFromFirestore: true };
+  selectedTripForStudent = found;
+
+  goTo("summary");
+}
+
+/* =========================================================
+   SCREEN RENDERING
    ========================================================= */
 
 function render() {
   if (currentScreen === "landing") return renderLandingScreen();
+
   if (currentScreen === "teacherAuth") return renderTeacherAuthScreen();
   if (currentScreen === "teacherClasses") return renderTeacherClassesScreen();
   if (currentScreen === "createClass") return renderCreateClassScreen();
@@ -652,12 +893,22 @@ function render() {
 
   if (currentScreen === "studentAuth") return renderStudentAuthScreen();
   if (currentScreen === "studentHome") return renderStudentHomeScreen();
+  if (currentScreen === "planDestination") return renderPlanDestinationScreen();
+  if (currentScreen === "mapsInstructions") return renderMapsInstructionsScreen();
+  if (currentScreen === "routeDetails") return renderRouteDetailsScreen();
+  if (currentScreen === "summary") return renderSummaryScreen();
+  if (currentScreen === "studentPastTrips") return renderStudentPastTripsScreen();
 
   if (currentScreen === "teacherStudentTrips") return renderTeacherStudentTripsScreen();
   if (currentScreen === "teacherTripDetails") return renderTeacherTripDetailsScreen();
 
+  // Default
   return renderLandingScreen();
 }
+
+/* =========================================================
+   LANDING
+   ========================================================= */
 
 function renderLandingScreen() {
   setAppHtml(`
@@ -677,6 +928,10 @@ function renderLandingScreen() {
 
   highlightSidebar("landing");
 }
+
+/* =========================================================
+   TEACHER AUTH
+   ========================================================= */
 
 function renderTeacherAuthScreen() {
   const signedIn = !!authUser;
@@ -751,6 +1006,10 @@ function renderTeacherAuthScreen() {
     $("btnEmailTeacherCreate")?.addEventListener("click", teacherCreateAccountEmail);
   }
 }
+
+/* =========================================================
+   TEACHER CLASSES
+   ========================================================= */
 
 function renderTeacherClassesScreen() {
   if (!authUser) {
@@ -852,6 +1111,10 @@ function renderCreateClassScreen() {
   $("btnSaveClass")?.addEventListener("click", createClassFromForm);
   $("btnCancelClass")?.addEventListener("click", () => goTo("teacherClasses"));
 }
+
+/* =========================================================
+   TEACHER ROSTER
+   ========================================================= */
 
 function renderClassRosterScreen() {
   if (!authUser) return goTo("teacherAuth");
@@ -967,9 +1230,11 @@ function renderClassRosterScreen() {
 
   $("btnBackClasses")?.addEventListener("click", () => {
     cleanupRosterRealtime();
-    cleanupStudentTripsRealtime();
+    cleanupTeacherStudentTripsRealtime();
+
     selectedClassId = null;
     selectedClassMeta = null;
+
     goTo("teacherClasses");
   });
 
@@ -989,6 +1254,10 @@ function renderClassRosterScreen() {
     });
   });
 }
+
+/* =========================================================
+   STUDENT AUTH + HOME
+   ========================================================= */
 
 function renderStudentAuthScreen() {
   const signedIn = !!authUser;
@@ -1054,14 +1323,15 @@ function renderStudentHomeScreen() {
         assigned
           ? `
             <div class="summary-card" style="margin-top:12px;">
-              <h4 style="margin-top:0;">You are assigned</h4>
-              <div class="summary-row">
-                <span class="summary-label">Class ID:</span>
-                <span class="summary-value">${escapeHtml(studentProfile.classId)}</span>
-              </div>
-              <p class="small-note" style="margin-top:10px;">
-                Next: we connect trip steps and save trips.
+              <h4 style="margin-top:0;">Ready to plan</h4>
+              <p class="small-note">
+                You will use Google Maps and type your route details yourself.
               </p>
+
+              <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
+                <button class="btn-primary" type="button" id="btnStartTrip">Start a new trip</button>
+                <button class="btn-secondary" type="button" id="btnPastTrips">Past trips</button>
+              </div>
             </div>
           `
           : `
@@ -1084,7 +1354,433 @@ function renderStudentHomeScreen() {
   `);
 
   $("btnSignOut")?.addEventListener("click", appSignOut);
+
+  if (assigned) {
+    $("btnStartTrip")?.addEventListener("click", () => {
+      clearCurrentTrip();
+      goTo("planDestination");
+    });
+
+    $("btnPastTrips")?.addEventListener("click", () => goTo("studentPastTrips"));
+  }
 }
+
+/* =========================================================
+   STUDENT STEP 1
+   ========================================================= */
+
+function renderPlanDestinationScreen() {
+  if (!authUser) return goTo("studentAuth");
+
+  setAppHtml(`
+    <section class="screen" aria-labelledby="step1Title">
+      <h2 id="step1Title">Step 1 - Basic info</h2>
+      <p>Enter the basic information for your CBI trip.</p>
+
+      <label for="destName">Destination name</label>
+      <input
+        id="destName"
+        type="text"
+        autocomplete="off"
+        placeholder="Example: Target"
+        value="${escapeHtml(currentTrip.destinationName)}"
+      />
+
+      <label for="destAddress">Destination address</label>
+      <input
+        id="destAddress"
+        type="text"
+        autocomplete="off"
+        placeholder="Street and city"
+        value="${escapeHtml(currentTrip.destinationAddress)}"
+      />
+
+      <label for="tripDate">Date of trip</label>
+      <input
+        id="tripDate"
+        type="date"
+        value="${escapeHtml(currentTrip.tripDate)}"
+      />
+
+      <label for="meetTime">Meet time</label>
+      <input
+        id="meetTime"
+        type="time"
+        value="${escapeHtml(currentTrip.meetTime)}"
+      />
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
+        <button class="btn-primary" type="button" id="btnToStep2">Go to Step 2</button>
+        <button class="btn-secondary" type="button" id="btnClearTrip">Clear trip</button>
+        <button class="btn-secondary" type="button" id="btnBackStudentHome">Back</button>
+      </div>
+    </section>
+  `);
+
+  $("destName")?.addEventListener("input", e => updateTripField("destinationName", e.target.value));
+  $("destAddress")?.addEventListener("input", e => updateTripField("destinationAddress", e.target.value));
+  $("tripDate")?.addEventListener("input", e => updateTripField("tripDate", e.target.value));
+  $("meetTime")?.addEventListener("input", e => updateTripField("meetTime", e.target.value));
+
+  $("btnToStep2")?.addEventListener("click", () => goTo("mapsInstructions"));
+
+  $("btnClearTrip")?.addEventListener("click", () => {
+    const ok = confirm("Clear this trip? This will erase your current entries.");
+    if (!ok) return;
+    clearCurrentTrip();
+    renderPlanDestinationScreen();
+  });
+
+  $("btnBackStudentHome")?.addEventListener("click", () => goTo("studentHome"));
+}
+
+/* =========================================================
+   STUDENT STEP 2
+   ========================================================= */
+
+function renderMapsInstructionsScreen() {
+  if (!authUser) return goTo("studentAuth");
+
+  setAppHtml(`
+    <section class="screen" aria-labelledby="step2Title">
+      <h2 id="step2Title">Step 2 - Google Maps steps</h2>
+      <p>Use Google Maps to find your route. You will type the details yourself in Step 3.</p>
+
+      <ol class="step-list">
+        <li>Check that your destination name and address are correct.</li>
+        <li>Open Google Maps in transit mode.</li>
+        <li>Choose a route that makes sense for you.</li>
+        <li>Write down bus number, direction, stops, times, and total travel time.</li>
+        <li>Come back here and type the details in Step 3.</li>
+      </ol>
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
+        <button class="btn-primary" type="button" id="btnOpenMaps">Open Google Maps</button>
+        <button class="btn-primary" type="button" id="btnToStep3">Go to Step 3</button>
+        <button class="btn-secondary" type="button" id="btnBackStep1">Back to Step 1</button>
+      </div>
+    </section>
+  `);
+
+  $("btnOpenMaps")?.addEventListener("click", openMapsForCurrentTrip);
+  $("btnToStep3")?.addEventListener("click", () => goTo("routeDetails"));
+  $("btnBackStep1")?.addEventListener("click", () => goTo("planDestination"));
+}
+
+/* =========================================================
+   STUDENT STEP 3 AND 4
+   ========================================================= */
+
+function renderRouteDetailsScreen() {
+  if (!authUser) return goTo("studentAuth");
+
+  const r = currentTrip.routeThere;
+  const rb = currentTrip.routeBack;
+  const p = currentTrip.purpose;
+
+  setAppHtml(`
+    <section class="screen" aria-labelledby="step3Title">
+      <h2 id="step3Title">Step 3 - Route details</h2>
+      <p>Type the route information from Google Maps. The app does not fill this in for you.</p>
+
+      <h3 class="section-title">Route there</h3>
+
+      <label for="busNumber">Bus number</label>
+      <input id="busNumber" type="text" placeholder="Example: 57" value="${escapeHtml(r.busNumber)}" />
+
+      <label for="direction">Direction</label>
+      <input id="direction" type="text" placeholder="Example: Northbound" value="${escapeHtml(r.direction)}" />
+
+      <label for="boardStop">Stop where you get on</label>
+      <input id="boardStop" type="text" placeholder="Example: Katella and State College" value="${escapeHtml(r.boardStop)}" />
+
+      <label for="exitStop">Stop where you get off</label>
+      <input id="exitStop" type="text" placeholder="Example: Anaheim Blvd and Lincoln" value="${escapeHtml(r.exitStop)}" />
+
+      <label for="departTime">Departure time</label>
+      <input id="departTime" type="text" placeholder="Example: 9:05 AM" value="${escapeHtml(r.departTime)}" />
+
+      <label for="arriveTime">Arrival time</label>
+      <input id="arriveTime" type="text" placeholder="Example: 9:40 AM" value="${escapeHtml(r.arriveTime)}" />
+
+      <label for="totalTime">Total travel time</label>
+      <input id="totalTime" type="text" placeholder="Example: 35 minutes" value="${escapeHtml(r.totalTime)}" />
+
+      <h3 class="section-title" style="margin-top:24px;">Route back</h3>
+
+      <label for="busNumberBack">Bus number</label>
+      <input id="busNumberBack" type="text" placeholder="Example: 57" value="${escapeHtml(rb.busNumber)}" />
+
+      <label for="directionBack">Direction</label>
+      <input id="directionBack" type="text" placeholder="Example: Southbound" value="${escapeHtml(rb.direction)}" />
+
+      <label for="boardStopBack">Stop where you get on</label>
+      <input id="boardStopBack" type="text" placeholder="Example: Lincoln and Anaheim Blvd" value="${escapeHtml(rb.boardStop)}" />
+
+      <label for="exitStopBack">Stop where you get off</label>
+      <input id="exitStopBack" type="text" placeholder="Example: Katella and State College" value="${escapeHtml(rb.exitStop)}" />
+
+      <label for="departTimeBack">Departure time</label>
+      <input id="departTimeBack" type="text" placeholder="Example: 12:30 PM" value="${escapeHtml(rb.departTime)}" />
+
+      <label for="arriveTimeBack">Arrival time</label>
+      <input id="arriveTimeBack" type="text" placeholder="Example: 1:05 PM" value="${escapeHtml(rb.arriveTime)}" />
+
+      <label for="totalTimeBack">Total travel time</label>
+      <input id="totalTimeBack" type="text" placeholder="Example: 35 minutes" value="${escapeHtml(rb.totalTime)}" />
+
+      <h3 class="section-title" style="margin-top:24px;">Step 4 - Why are we going?</h3>
+      <p>Check all the skills you will practice on this trip.</p>
+
+      <div class="purpose-grid">
+        ${renderPurposeCheckbox("lifeSkills", p.lifeSkills, "Life skills (shopping, ordering, daily living)")}
+        ${renderPurposeCheckbox("communityAccess", p.communityAccess, "Community access and navigation")}
+        ${renderPurposeCheckbox("moneySkills", p.moneySkills, "Money skills (budgeting, paying, change)")}
+        ${renderPurposeCheckbox("communication", p.communication, "Communication and self advocacy")}
+        ${renderPurposeCheckbox("socialSkills", p.socialSkills, "Social skills and teamwork")}
+        ${renderPurposeCheckbox("employmentPrep", p.employmentPrep, "Employment preparation or work skills")}
+        ${renderPurposeCheckbox("recreationLeisure", p.recreationLeisure, "Recreation and leisure in the community")}
+        ${renderPurposeCheckbox("safetySkills", p.safetySkills, "Safety skills (street safety, stranger awareness, etc.)")}
+      </div>
+
+      <label for="purposeOther">Other reason</label>
+      <input
+        id="purposeOther"
+        type="text"
+        placeholder="Example: practice transfers"
+        value="${escapeHtml(p.otherText)}"
+      />
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
+        <button class="btn-primary" type="button" id="btnToSummary">Go to summary</button>
+        <button class="btn-secondary" type="button" id="btnBackStep2">Back to Step 2</button>
+      </div>
+    </section>
+  `);
+
+  // Route there
+  $("busNumber")?.addEventListener("input", e => updateRouteThereField("busNumber", e.target.value));
+  $("direction")?.addEventListener("input", e => updateRouteThereField("direction", e.target.value));
+  $("boardStop")?.addEventListener("input", e => updateRouteThereField("boardStop", e.target.value));
+  $("exitStop")?.addEventListener("input", e => updateRouteThereField("exitStop", e.target.value));
+  $("departTime")?.addEventListener("input", e => updateRouteThereField("departTime", e.target.value));
+  $("arriveTime")?.addEventListener("input", e => updateRouteThereField("arriveTime", e.target.value));
+  $("totalTime")?.addEventListener("input", e => updateRouteThereField("totalTime", e.target.value));
+
+  // Route back
+  $("busNumberBack")?.addEventListener("input", e => updateRouteBackField("busNumber", e.target.value));
+  $("directionBack")?.addEventListener("input", e => updateRouteBackField("direction", e.target.value));
+  $("boardStopBack")?.addEventListener("input", e => updateRouteBackField("boardStop", e.target.value));
+  $("exitStopBack")?.addEventListener("input", e => updateRouteBackField("exitStop", e.target.value));
+  $("departTimeBack")?.addEventListener("input", e => updateRouteBackField("departTime", e.target.value));
+  $("arriveTimeBack")?.addEventListener("input", e => updateRouteBackField("arriveTime", e.target.value));
+  $("totalTimeBack")?.addEventListener("input", e => updateRouteBackField("totalTime", e.target.value));
+
+  // Purpose
+  document.querySelectorAll("[data-purpose]").forEach(cb => {
+    cb.addEventListener("change", e => {
+      const field = cb.getAttribute("data-purpose");
+      if (!field) return;
+      togglePurposeField(field, !!e.target.checked);
+    });
+  });
+
+  $("purposeOther")?.addEventListener("input", e => updatePurposeOther(e.target.value));
+
+  $("btnToSummary")?.addEventListener("click", () => goTo("summary"));
+  $("btnBackStep2")?.addEventListener("click", () => goTo("mapsInstructions"));
+}
+
+function renderPurposeCheckbox(field, checked, labelText) {
+  return `
+    <label class="purpose-item">
+      <input type="checkbox" data-purpose="${escapeHtml(field)}" ${checked ? "checked" : ""} />
+      ${escapeHtml(labelText)}
+    </label>
+  `;
+}
+
+/* =========================================================
+   STUDENT SUMMARY + SAVE
+   ========================================================= */
+
+function renderSummaryScreen() {
+  if (!authUser) return goTo("studentAuth");
+
+  const r = currentTrip.routeThere;
+  const rb = currentTrip.routeBack;
+  const pHtml = renderPurposeSummaryList();
+
+  const savedTag = currentTripMeta.id ? `<span class="small-note">Saved trip ID: ${escapeHtml(currentTripMeta.id)}</span>` : "";
+
+  setAppHtml(`
+    <section class="screen" aria-labelledby="summaryTitle">
+      <h2 id="summaryTitle">Trip summary</h2>
+      <p>Review your plan. If something looks wrong, go back and fix it.</p>
+      ${savedTag}
+
+      <div class="summary-grid">
+        <article class="summary-card">
+          <h4>Trip basics</h4>
+          <div class="summary-row">
+            <span class="summary-label">Destination:</span>
+            <span class="summary-value">${escapeHtml(currentTrip.destinationName || "-")}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Address:</span>
+            <span class="summary-value">${escapeHtml(currentTrip.destinationAddress || "-")}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Date:</span>
+            <span class="summary-value">${escapeHtml(currentTrip.tripDate || "-")}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Meet time:</span>
+            <span class="summary-value">${escapeHtml(currentTrip.meetTime || "-")}</span>
+          </div>
+        </article>
+
+        <article class="summary-card">
+          <h4>Route there</h4>
+          ${renderSummaryRow("Bus number", r.busNumber)}
+          ${renderSummaryRow("Direction", r.direction)}
+          ${renderSummaryRow("Get on", r.boardStop)}
+          ${renderSummaryRow("Get off", r.exitStop)}
+          ${renderSummaryRow("Depart", r.departTime)}
+          ${renderSummaryRow("Arrive", r.arriveTime)}
+          ${renderSummaryRow("Total time", r.totalTime)}
+        </article>
+
+        <article class="summary-card">
+          <h4>Route back</h4>
+          ${renderSummaryRow("Bus number", rb.busNumber)}
+          ${renderSummaryRow("Direction", rb.direction)}
+          ${renderSummaryRow("Get on", rb.boardStop)}
+          ${renderSummaryRow("Get off", rb.exitStop)}
+          ${renderSummaryRow("Depart", rb.departTime)}
+          ${renderSummaryRow("Arrive", rb.arriveTime)}
+          ${renderSummaryRow("Total time", rb.totalTime)}
+        </article>
+
+        <article class="summary-card">
+          <h4>Why are we going?</h4>
+          <ul class="summary-list">${pHtml}</ul>
+        </article>
+      </div>
+
+      <div style="margin-top:14px;">
+        <p id="studentSaveError" style="color:#b00020;"></p>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <button class="btn-primary" type="button" id="btnSaveTrip">
+            Save trip
+          </button>
+
+          <button class="btn-secondary" type="button" id="btnEditStep1">
+            Edit Step 1
+          </button>
+
+          <button class="btn-secondary" type="button" id="btnEditStep3">
+            Edit Step 3 and 4
+          </button>
+
+          <button class="btn-secondary" type="button" id="btnPastTrips">
+            Past trips
+          </button>
+
+          <button class="btn-secondary" type="button" id="btnStudentHome">
+            Student home
+          </button>
+        </div>
+      </div>
+    </section>
+  `);
+
+  $("btnSaveTrip")?.addEventListener("click", saveStudentTrip);
+  $("btnEditStep1")?.addEventListener("click", () => goTo("planDestination"));
+  $("btnEditStep3")?.addEventListener("click", () => goTo("routeDetails"));
+  $("btnPastTrips")?.addEventListener("click", () => goTo("studentPastTrips"));
+  $("btnStudentHome")?.addEventListener("click", () => goTo("studentHome"));
+}
+
+function renderSummaryRow(label, value) {
+  const v = value ? escapeHtml(value) : "-";
+  return `
+    <div class="summary-row">
+      <span class="summary-label">${escapeHtml(label)}:</span>
+      <span class="summary-value">${v}</span>
+    </div>
+  `;
+}
+
+/* =========================================================
+   STUDENT PAST TRIPS
+   ========================================================= */
+
+function renderStudentPastTripsScreen() {
+  if (!authUser) return goTo("studentAuth");
+
+  const listHtml = studentTrips.length
+    ? studentTrips
+        .map(t => {
+          const dest = escapeHtml(t.destinationName || "Trip");
+          const date = escapeHtml(t.tripDate || "");
+          const addr = escapeHtml(t.destinationAddress || "");
+          const sub = date ? `Date: ${date}` : "No date entered";
+
+          return `
+            <div class="summary-card" style="margin-bottom:12px;">
+              <h4 style="margin-top:0; margin-bottom:6px;">${dest}</h4>
+              <div class="small-note">${escapeHtml(sub)}</div>
+              ${addr ? `<div class="small-note">${addr}</div>` : ""}
+
+              <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+                <button class="btn-primary" type="button" data-open-student-trip="${escapeHtml(t.id)}">
+                  Open
+                </button>
+              </div>
+            </div>
+          `;
+        })
+        .join("")
+    : `<p class="small-note">No saved trips yet.</p>`;
+
+  setAppHtml(`
+    <section class="screen" aria-labelledby="pastTripsTitle">
+      <h2 id="pastTripsTitle">Past trips</h2>
+      <p>Open a saved trip to review or edit it.</p>
+
+      <p id="studentTripsError" style="color:#b00020;"></p>
+
+      <div style="margin-top:16px;">
+        ${listHtml}
+      </div>
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
+        <button class="btn-primary" type="button" id="btnStartNewTrip">Start new trip</button>
+        <button class="btn-secondary" type="button" id="btnBackStudentHome">Back</button>
+      </div>
+    </section>
+  `);
+
+  document.querySelectorAll("[data-open-student-trip]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-open-student-trip");
+      if (id) openStudentTripFromPast(id);
+    });
+  });
+
+  $("btnStartNewTrip")?.addEventListener("click", () => {
+    clearCurrentTrip();
+    goTo("planDestination");
+  });
+
+  $("btnBackStudentHome")?.addEventListener("click", () => goTo("studentHome"));
+}
+
+/* =========================================================
+   TEACHER: STUDENT TRIPS SCREENS
+   ========================================================= */
 
 function renderTeacherStudentTripsScreen() {
   if (!authUser) return goTo("teacherAuth");
@@ -1093,8 +1789,8 @@ function renderTeacherStudentTripsScreen() {
   const titleName = selectedStudent.name ? escapeHtml(selectedStudent.name) : "Student";
   const titleEmail = escapeHtml(selectedStudent.email || "");
 
-  const tripsHtml = studentTrips.length
-    ? studentTrips
+  const tripsHtml = studentTripsForTeacher.length
+    ? studentTripsForTeacher
         .map(t => {
           const destName = escapeHtml(t.destinationName || "Trip");
           const tripDate = escapeHtml(t.tripDate || "");
@@ -1141,7 +1837,7 @@ function renderTeacherStudentTripsScreen() {
   `);
 
   $("btnBackRoster")?.addEventListener("click", () => {
-    selectedTrip = null;
+    selectedTripForTeacher = null;
     goTo("classRoster");
   });
 
@@ -1156,15 +1852,14 @@ function renderTeacherStudentTripsScreen() {
 function renderTeacherTripDetailsScreen() {
   if (!authUser) return goTo("teacherAuth");
   if (!selectedStudent?.uid) return goTo("classRoster");
-  if (!selectedTrip?.id) return goTo("teacherStudentTrips");
+  if (!selectedTripForTeacher?.id) return goTo("teacherStudentTrips");
 
-  // Safe pretty print, but keep it readable
-  const tripJson = escapeHtml(JSON.stringify(selectedTrip, null, 2));
+  const tripJson = escapeHtml(JSON.stringify(selectedTripForTeacher, null, 2));
 
-  const destName = escapeHtml(selectedTrip.destinationName || "Trip");
-  const address = escapeHtml(selectedTrip.destinationAddress || "");
-  const date = escapeHtml(selectedTrip.tripDate || "");
-  const meet = escapeHtml(selectedTrip.meetTime || "");
+  const destName = escapeHtml(selectedTripForTeacher.destinationName || "Trip");
+  const address = escapeHtml(selectedTripForTeacher.destinationAddress || "");
+  const date = escapeHtml(selectedTripForTeacher.tripDate || "");
+  const meet = escapeHtml(selectedTripForTeacher.meetTime || "");
 
   setAppHtml(`
     <section class="screen" aria-labelledby="tripTitle">
@@ -1217,14 +1912,20 @@ function wireSidebar() {
         if (!authUser) return goTo("teacherAuth");
       }
 
-      // Guard student home
-      if (screen === "studentHome") {
+      // Guard student screens
+      if (
+        screen === "studentHome" ||
+        screen === "planDestination" ||
+        screen === "mapsInstructions" ||
+        screen === "routeDetails" ||
+        screen === "summary" ||
+        screen === "studentPastTrips"
+      ) {
         if (!authUser) return goTo("studentAuth");
       }
 
-      // Do not allow jumping into internal teacher screens from sidebar
+      // Internal screens should not be clickable from sidebar
       if (screen === "classRoster" || screen === "teacherStudentTrips" || screen === "teacherTripDetails") {
-        // ignore sidebar click
         return;
       }
 
@@ -1242,7 +1943,7 @@ function wireSidebar() {
 }
 
 /* =========================================================
-   AUTH STATE
+   AUTH STATE LISTENER
    ========================================================= */
 
 onAuthStateChanged(auth, async user => {
@@ -1251,11 +1952,14 @@ onAuthStateChanged(auth, async user => {
   if (!authUser) {
     cleanupTeacherRealtime();
     cleanupRosterRealtime();
+    cleanupTeacherStudentTripsRealtime();
     cleanupStudentTripsRealtime();
 
     studentProfile = null;
     selectedClassId = null;
     selectedClassMeta = null;
+
+    clearCurrentTrip();
 
     if (currentScreen !== "landing") goTo("landing");
     else render();
@@ -1264,12 +1968,15 @@ onAuthStateChanged(auth, async user => {
   }
 
   try {
-    // Teacher profile + teacher classes listener
+    // Teacher profile + classes
     await ensureTeacherProfile(authUser);
     startTeacherClassesRealtime(authUser.uid);
 
     // Student profile + auto-assign
     studentProfile = await ensureStudentProfileAndAutoAssign(authUser);
+
+    // Student trips realtime (for past trips screen and for fast open)
+    startStudentTripsRealtime(authUser.uid);
 
     // If they just did student login, land them
     if (currentScreen === "studentAuth") {
@@ -1277,7 +1984,7 @@ onAuthStateChanged(auth, async user => {
       return;
     }
 
-    // If they land here from teacher login or first load, go to classes
+    // If they just did teacher login, land them
     if (currentScreen === "teacherAuth" || currentScreen === "landing") {
       goTo("teacherClasses");
       return;
@@ -1290,7 +1997,7 @@ onAuthStateChanged(auth, async user => {
 });
 
 /* =========================================================
-   INIT
+   INITIALIZE APP
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", () => {
