@@ -1,24 +1,21 @@
 /* =========================================================
-   ROOT VARIABLES (Custom Color Palette and Fonts)
+   ROOT VARIABLES
    ========================================================= */
 
 :root {
-    /* Primary Background: Dark Teal/Gray for Sidebar and Header */
-    --color-dark-bg: #1C363C;
-    
-    /* Secondary Background: Light Gray/Off-White for Main Content Area */
-    --color-light-bg: #F8F8F8;
-    
-    /* Accent Color: Bright Teal/Green for Highlights and Active States */
-    --color-accent: #1AA489;
+  --color-dark-bg: #1C363C;
+  --color-dark-bg-2: #23444b;
+  --color-accent: #1AA489;
 
-    /* Text Colors */
-    --color-text-light: #FFFFFF; /* White text for dark backgrounds */
-    --color-text-dark: #333333; /* Dark gray for light backgrounds */
+  --color-light-bg: #F8F8F8;
+  --color-card-bg: #FFFFFF;
 
-    /* Fonts (Ensure Google Font Link is in your HTML <head>) */
-    --font-cbi: 'Oswald', sans-serif;
-    --font-planner: 'Poppins', sans-serif;
+  --color-text-light: #FFFFFF;
+  --color-text-dark: #333333;
+  --color-muted: #7a8a8f;
+
+  --radius: 10px;
+  --transition: 0.2s ease-in-out;
 }
 
 /* =========================================================
@@ -26,204 +23,254 @@
    ========================================================= */
 
 * {
-    box-sizing: border-box;
+  box-sizing: border-box;
 }
 
-html,
-body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    font-family: var(--font-planner);
-    background-color: var(--color-light-bg);
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: var(--color-light-bg);
+  color: var(--color-text-dark);
 }
 
 /* =========================================================
-   APP LAYOUT (The Two-Column Structure)
+   APP LAYOUT
    ========================================================= */
 
 .app-shell {
-    display: flex;
-    min-height: 100vh;
+  display: flex;
+  min-height: 100vh;
 }
 
 /* =========================================================
-   SIDEBAR (Left Column: Dark Teal/Gray)
+   SIDEBAR
    ========================================================= */
 
 .sidebar {
-    width: 260px;
-    background-color: var(--color-dark-bg);
-    color: var(--color-text-light);
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0; 
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  width: 260px;
+  background-color: var(--color-dark-bg);
+  color: var(--color-text-light);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
 }
 
 /* =========================================================
-   SIDEBAR LOGO HEADER (Container for the Logo Image)
+   SIDEBAR LOGO
    ========================================================= */
 
 .sidebar-header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    /* Fixed height for a clean, consistent header bar */
-    height: 70px; 
-    padding: 16px 12px;
-    background-color: transparent; 
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 18px 12px;
 }
 
-/* Logo image itself (Ensure the PNG file is transparent) */
 .sidebar-logo {
-    /* *** MODIFIED FOR WIDER LOGO *** */
-    max-width: 85%; /* Changed from 200px to 85% to be almost as wide as the 260px sidebar */
-    
-    max-height: 40px; 
-    width: 100%;
-    height: auto;
-    display: block;
-    object-fit: contain;
-    background-color: transparent; 
+  width: 85%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  background: transparent;
 }
-
 
 /* =========================================================
-   SIDEBAR NAVIGATION
+   SIDEBAR NAV
    ========================================================= */
 
 .sidebar-nav {
-    display: flex;
-    flex-direction: column;
-    padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
 }
 
-.sidebar-divider {
-    height: 1px;
-    background-color: rgba(255, 255, 255, 0.15); 
-    margin: 10px 12px;
-}
-
-/* Nav buttons/items */
 .sidebar-item {
-    background: none;
-    border: none;
-    color: var(--color-text-light);
-    padding: 12px 16px;
-    text-align: left;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    font-size: 15px;
-    font-family: var(--font-planner);
-    transition: background-color 0.15s ease;
-    text-decoration: none; 
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background: none;
+  border: none;
+  color: var(--color-text-light);
+  cursor: pointer;
+  text-align: left;
+  font-size: 15px;
+  transition: background-color var(--transition);
 }
 
 .sidebar-item i {
-    width: 18px;
-    text-align: center;
+  width: 20px;
+  text-align: center;
 }
 
 .sidebar-item:hover {
-    background-color: rgba(255, 255, 255, 0.08); 
+  background-color: var(--color-dark-bg-2);
 }
 
 .sidebar-item.active {
-    background-color: var(--color-accent); 
-    color: #ffffff;
+  background-color: var(--color-accent);
+  color: #ffffff;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background-color: rgba(255,255,255,0.15);
+  margin: 10px 0;
 }
 
 /* =========================================================
-   MAIN CONTENT AREA (Right Column: Light Gray/Off-White)
+   MAIN CONTENT
    ========================================================= */
 
 .main {
-    flex-grow: 1;
-    background-color: var(--color-light-bg);
-    padding: 40px; /* Increased padding for better spacing */
+  flex-grow: 1;
+  padding: 28px;
+  background-color: var(--color-light-bg);
 }
 
 .app-root {
-    max-width: 1100px;
-    color: var(--color-text-dark); /* Ensure text is readable */
+  max-width: 1100px;
+  margin: 0 auto;
 }
 
 /* =========================================================
-   LANDING PAGE STYLES (Content on the Right)
+   SCREENS
    ========================================================= */
 
-.landing-heading {
-    font-family: var(--font-cbi);
-    font-size: 2.5em;
-    color: var(--color-text-dark);
-    margin-bottom: 5px;
+.screen h2 {
+  margin-top: 0;
+  font-size: 28px;
 }
 
-.mode-selector-prompt {
-    font-size: 1.1em;
-    color: #666;
-    margin-bottom: 30px;
-}
-
-.explanation-text {
-    font-size: 1em;
-    color: #555;
-    margin-top: 30px;
-    line-height: 1.6;
-    max-width: 600px;
+.small-note {
+  font-size: 14px;
+  color: var(--color-muted);
 }
 
 /* =========================================================
-   BUTTONS (Mode Selector and Standard Buttons)
+   FORMS
    ========================================================= */
 
-.mode-buttons-container {
-    display: flex;
-    gap: 15px;
+label {
+  display: block;
+  margin-top: 14px;
+  font-weight: 600;
 }
 
-.mode-button {
-    /* Base styling for Teacher/Student buttons */
-    padding: 12px 30px;
-    border: 2px solid var(--color-accent);
-    background-color: transparent;
-    color: var(--color-accent);
-    font-weight: 600; /* Use Poppins semi-bold */
-    font-size: 1.1em;
-    cursor: pointer;
-    border-radius: 5px;
-    transition: all 0.2s ease-in-out;
+input {
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 6px;
+  border-radius: var(--radius);
+  border: 1px solid #ccc;
+  font-size: 15px;
 }
 
-.mode-button:hover {
-    background-color: rgba(26, 164, 137, 0.05); /* Light hover on secondary button */
+input:focus {
+  outline: none;
+  border-color: var(--color-accent);
 }
 
-.mode-button.active {
-    /* Active button uses primary (accent) color background */
-    background-color: var(--color-accent);
-    color: var(--color-text-light);
-}
+/* =========================================================
+   BUTTONS
+   ========================================================= */
 
-/* --- Re-adding general button and card styles for completeness --- */
+button {
+  font-family: inherit;
+}
 
 .btn-primary {
-    background-color: var(--color-accent);
-    color: white;
-    border: none;
-    padding: 10px 18px;
-    font-size: 15px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: opacity 0.2s;
+  background-color: var(--color-accent);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background-color var(--transition);
 }
 
+.btn-primary:hover {
+  background-color: #148d76;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-accent);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-accent);
+  color: #ffffff;
+}
+
+/* =========================================================
+   CARDS
+   ========================================================= */
+
 .summary-card {
-    background-color: #ffffff;
-    border-radius: 10px;
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.summary-label {
+  font-weight: 600;
+}
+
+.summary-value {
+  color: var(--color-muted);
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: 220px;
+  }
+
+  .main {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 700px) {
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+  }
+
+  .sidebar-item {
+    justify-content: center;
+  }
+
+  .main {
     padding: 16px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+  }
 }
