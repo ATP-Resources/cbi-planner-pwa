@@ -1,8 +1,8 @@
 /* =========================================================
    CBI TRIP PLANNER
    Firebase Auth + Firestore
-   Teacher login + Teacher classes
-   Student login + Auto profile creation
+   Teacher login + Teacher classes + Class roster (assign students)
+   Student login + Auto profile creation + Auto class assignment
    ========================================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -21,14 +21,18 @@ import {
   doc,
   setDoc,
   getDoc,
+  getDocs,
   collection,
+  collectionGroup,
   addDoc,
   updateDoc,
   deleteDoc,
   onSnapshot,
   serverTimestamp,
   query,
-  orderBy
+  orderBy,
+  where,
+  limit
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 /* =========================================================
@@ -59,8 +63,15 @@ let authUser = null;
 let activeRole = "none"; // "teacher" | "student" | "none"
 let studentProfile = null;
 
+// Teacher classes
 let teacherClasses = [];
 let unsubscribeClasses = null;
+
+// Roster
+let selectedClassId = null;
+let selectedClassName = null;
+let roster = [];
+let unsubscribeRoster = null;
 
 /* =========================================================
    DOM HELPERS
@@ -153,6 +164,74 @@ async function ensureTeacherProfile(user) {
   await setDoc(teacherRef, payload, { merge: true });
 }
 
+/*
+  Student auto assignment logic:
+
+  Teacher adds roster invite doc at:
+  /teachers/{teacherUid}/classes/{classId}/roster/{rosterDocId}
+
+  Example fields:
+  {
+    studentEmail,
+    studentName,
+    status: "invited",
+    teacherId,
+    classId,
+    createdAt
+  }
+
+  When a student logs in, we:
+  1) Create /students/{uid} if missing
+  2) If studentProfile.classId is empty, search for a roster invite matching studentEmail
+  3) If found, set student profile teacherId + classId + status "active"
+     and mark roster entry as "claimed" + store studentUid
+*/
+
+async function tryClaimRosterInviteForStudent(user) {
+  if (!user?.email) return null;
+
+  // Find one invite anywhere (collectionGroup lets us search all roster subcollections)
+  const q = query(
+    collectionGroup(db, "roster"),
+    where("studentEmail", "==", user.email),
+    where("status", "==", "invited"),
+    limit(1)
+  );
+
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+
+  const inviteDoc = snap.docs[0];
+  const inviteData = inviteDoc.data();
+
+  const teacherId = inviteData.teacherId || null;
+  const classId = inviteData.classId || null;
+
+  if (!teacherId || !classId) return null;
+
+  // Update the roster doc to claimed
+  await updateDoc(inviteDoc.ref, {
+    status: "claimed",
+    studentUid: user.uid,
+    claimedAt: serverTimestamp()
+  });
+
+  // Update student profile
+  const studentRef = doc(db, "students", user.uid);
+  await setDoc(
+    studentRef,
+    {
+      teacherId,
+      classId,
+      status: "active",
+      updatedAt: serverTimestamp()
+    },
+    { merge: true }
+  );
+
+  return { teacherId, classId };
+}
+
 async function ensureStudentProfile(user) {
   if (!user) return null;
 
@@ -165,27 +244,40 @@ async function ensureStudentProfile(user) {
     updatedAt: serverTimestamp()
   };
 
-  // First login creates a real student profile doc
-  // teacherId and classId start empty until you add roster assignment
   if (!snap.exists()) {
     payload.createdAt = serverTimestamp();
     payload.teacherId = null;
     payload.classId = null;
-    payload.status = "pending"; // teacher will assign later
+    payload.status = "pending";
   }
 
   await setDoc(studentRef, payload, { merge: true });
 
-  const fresh = await getDoc(studentRef);
-  return fresh.exists() ? { id: fresh.id, ...fresh.data() } : null;
+  // Re-read fresh data
+  let fresh = await getDoc(studentRef);
+  let data = fresh.exists() ? { id: fresh.id, ...fresh.data() } : null;
+
+  // If not assigned yet, try to auto-claim invite
+  if (data && !data.classId && user.email) {
+    const claimed = await tryClaimRosterInviteForStudent(user);
+    if (claimed) {
+      fresh = await getDoc(studentRef);
+      data = fresh.exists() ? { id: fresh.id, ...fresh.data() } : data;
+    }
+  }
+
+  return data;
 }
 
 async function appSignOut() {
   try {
     await signOut(auth);
     cleanupTeacherRealtime();
+    cleanupRosterRealtime();
     studentProfile = null;
     activeRole = "none";
+    selectedClassId = null;
+    selectedClassName = null;
     goTo("landing");
   } catch (err) {
     console.error(err);
@@ -211,7 +303,6 @@ async function teacherSignInWithGoogle() {
 
 async function teacherCreateAccountEmail() {
   setError("teacherAuthError", "");
-
   setRoleIntent("teacher");
 
   const email = ($("teacherEmail")?.value || "").trim();
@@ -234,7 +325,6 @@ async function teacherCreateAccountEmail() {
 
 async function teacherSignInEmail() {
   setError("teacherAuthError", "");
-
   setRoleIntent("teacher");
 
   const email = ($("teacherEmail")?.value || "").trim();
@@ -271,7 +361,6 @@ async function studentSignInWithGoogle() {
 
 async function studentCreateAccountEmail() {
   setError("studentAuthError", "");
-
   setRoleIntent("student");
 
   const email = ($("studentEmail")?.value || "").trim();
@@ -294,7 +383,6 @@ async function studentCreateAccountEmail() {
 
 async function studentSignInEmail() {
   setError("studentAuthError", "");
-
   setRoleIntent("student");
 
   const email = ($("studentEmail")?.value || "").trim();
@@ -336,10 +424,7 @@ function startTeacherClassesRealtime(teacherUid) {
   unsubscribeClasses = onSnapshot(
     q,
     snapshot => {
-      teacherClasses = snapshot.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      }));
+      teacherClasses = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       if (currentScreen === "teacherClasses") renderTeacherClassesScreen();
     },
     err => {
@@ -421,6 +506,102 @@ async function deleteClass(classId) {
 }
 
 /* =========================================================
+   FIRESTORE: CLASS ROSTER (assign students)
+   Path: /teachers/{teacherUid}/classes/{classId}/roster/{rosterDoc}
+   ========================================================= */
+
+function cleanupRosterRealtime() {
+  if (unsubscribeRoster) {
+    unsubscribeRoster();
+    unsubscribeRoster = null;
+  }
+  roster = [];
+}
+
+function startRosterRealtime(teacherUid, classId) {
+  cleanupRosterRealtime();
+  if (!teacherUid || !classId) return;
+
+  const rosterRef = collection(db, "teachers", teacherUid, "classes", classId, "roster");
+  const q = query(rosterRef, orderBy("createdAt", "desc"));
+
+  unsubscribeRoster = onSnapshot(
+    q,
+    snapshot => {
+      roster = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (currentScreen === "classRoster") renderClassRosterScreen();
+    },
+    err => {
+      console.error(err);
+      if (currentScreen === "classRoster") {
+        setError("rosterError", err?.message || "Could not load roster.");
+      }
+    }
+  );
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+async function addStudentToRoster() {
+  setError("rosterError", "");
+
+  if (!authUser || activeRole !== "teacher") {
+    setError("rosterError", "You must be signed in as a teacher.");
+    return;
+  }
+  if (!selectedClassId) {
+    setError("rosterError", "No class selected.");
+    return;
+  }
+
+  const studentName = ($("studentRosterName")?.value || "").trim();
+  const studentEmail = ($("studentRosterEmail")?.value || "").trim().toLowerCase();
+
+  if (!studentEmail || !isValidEmail(studentEmail)) {
+    setError("rosterError", "Enter a valid student email.");
+    return;
+  }
+
+  try {
+    const rosterRef = collection(db, "teachers", authUser.uid, "classes", selectedClassId, "roster");
+    await addDoc(rosterRef, {
+      studentName: studentName || "",
+      studentEmail,
+      status: "invited",
+      teacherId: authUser.uid,
+      classId: selectedClassId,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    // Clear inputs
+    if ($("studentRosterName")) $("studentRosterName").value = "";
+    if ($("studentRosterEmail")) $("studentRosterEmail").value = "";
+  } catch (err) {
+    console.error(err);
+    setError("rosterError", err?.message || "Could not add student.");
+  }
+}
+
+async function removeRosterEntry(rosterId) {
+  if (!authUser || activeRole !== "teacher") return;
+  if (!selectedClassId) return;
+
+  const ok = confirm("Remove this student from the roster?");
+  if (!ok) return;
+
+  try {
+    const rosterDocRef = doc(db, "teachers", authUser.uid, "classes", selectedClassId, "roster", rosterId);
+    await deleteDoc(rosterDocRef);
+  } catch (err) {
+    console.error(err);
+    alert(err?.message || "Could not remove roster entry.");
+  }
+}
+
+/* =========================================================
    RENDER: SCREENS
    ========================================================= */
 
@@ -429,6 +610,7 @@ function render() {
   if (currentScreen === "teacherAuth") return renderTeacherAuthScreen();
   if (currentScreen === "teacherClasses") return renderTeacherClassesScreen();
   if (currentScreen === "createClass") return renderCreateClassScreen();
+  if (currentScreen === "classRoster") return renderClassRosterScreen();
   if (currentScreen === "studentAuth") return renderStudentAuthScreen();
   if (currentScreen === "studentHome") return renderStudentHomeScreen();
 
@@ -442,16 +624,13 @@ function renderLandingScreen() {
       <p>Choose your mode.</p>
 
       <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:16px;">
-        <button class="btn-primary" type="button" id="btnTeacher">
-          Teacher
-        </button>
-        <button class="btn-secondary" type="button" id="btnStudent">
-          Student
-        </button>
+        <button class="btn-primary" type="button" id="btnTeacher">Teacher</button>
+        <button class="btn-secondary" type="button" id="btnStudent">Student</button>
       </div>
 
       <p class="small-note" style="margin-top:14px;">
-        Teachers create classes. Students log in and their profile is created automatically.
+        Teachers invite students by email inside a class roster.
+        Students log in and are automatically placed into their class.
       </p>
     </section>
   `);
@@ -492,12 +671,8 @@ function renderTeacherAuthScreen() {
             </div>
 
             <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
-              <button class="btn-primary" type="button" id="btnGoClasses">
-                Go to teacher classes
-              </button>
-              <button class="btn-secondary" type="button" id="btnSignOut">
-                Sign out
-              </button>
+              <button class="btn-primary" type="button" id="btnGoClasses">Go to teacher classes</button>
+              <button class="btn-secondary" type="button" id="btnSignOut">Sign out</button>
             </div>
           `
           : `
@@ -505,12 +680,8 @@ function renderTeacherAuthScreen() {
 
             <div class="summary-card" style="margin-top:14px;">
               <h4 style="margin-top:0;">Google sign-in</h4>
-              <button class="btn-primary" type="button" id="btnGoogle">
-                Sign in with Google
-              </button>
-              <p class="small-note" style="margin-top:10px;">
-                If your district blocks popups, allow popups for this site.
-              </p>
+              <button class="btn-primary" type="button" id="btnGoogle">Sign in with Google</button>
+              <p class="small-note" style="margin-top:10px;">If popups are blocked, allow popups for this site.</p>
             </div>
 
             <div class="summary-card" style="margin-top:14px;">
@@ -526,12 +697,8 @@ function renderTeacherAuthScreen() {
               <input id="teacherPassword" type="password" autocomplete="current-password" placeholder="Password" />
 
               <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
-                <button class="btn-primary" type="button" id="btnEmailSignIn">
-                  Sign in
-                </button>
-                <button class="btn-secondary" type="button" id="btnEmailCreate">
-                  Create account
-                </button>
+                <button class="btn-primary" type="button" id="btnEmailSignIn">Sign in</button>
+                <button class="btn-secondary" type="button" id="btnEmailCreate">Create account</button>
               </div>
 
               <p id="teacherAuthError" style="color:#b00020; margin-top:10px;"></p>
@@ -539,9 +706,7 @@ function renderTeacherAuthScreen() {
           `
       }
 
-      <button class="btn-secondary" type="button" style="margin-top:16px;" id="btnBackLanding">
-        Back
-      </button>
+      <button class="btn-secondary" type="button" style="margin-top:16px;" id="btnBackLanding">Back</button>
     </section>
   `);
 
@@ -580,7 +745,11 @@ function renderTeacherClassesScreen() {
             <article class="summary-card" style="margin-bottom:12px;">
               <h4 style="margin-top:0; margin-bottom:6px;">${name}</h4>
               ${sub}
+
               <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+                <button class="btn-primary" type="button" data-roster="${c.id}" data-classname="${escapeHtml(c.name || "")}">
+                  Roster
+                </button>
                 <button class="btn-secondary" type="button" data-rename="${c.id}">Rename</button>
                 <button class="btn-secondary" type="button" data-delete="${c.id}">Delete</button>
               </div>
@@ -611,6 +780,19 @@ function renderTeacherClassesScreen() {
   $("btnCreateClass")?.addEventListener("click", () => goTo("createClass"));
   $("btnSignOut")?.addEventListener("click", appSignOut);
 
+  // Roster
+  document.querySelectorAll("[data-roster]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-roster");
+      const cname = btn.getAttribute("data-classname");
+      selectedClassId = id;
+      selectedClassName = cname || "Class roster";
+      startRosterRealtime(authUser.uid, selectedClassId);
+      goTo("classRoster");
+    });
+  });
+
+  // Rename/delete
   document.querySelectorAll("[data-rename]").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-rename");
@@ -655,6 +837,85 @@ function renderCreateClassScreen() {
   $("btnCancelClass")?.addEventListener("click", () => goTo("teacherClasses"));
 }
 
+function renderClassRosterScreen() {
+  if (!authUser || activeRole !== "teacher") {
+    goTo("teacherAuth");
+    return;
+  }
+  if (!selectedClassId) {
+    goTo("teacherClasses");
+    return;
+  }
+
+  const listHtml = roster.length
+    ? roster
+        .map(r => {
+          const nm = escapeHtml(r.studentName || "");
+          const em = escapeHtml(r.studentEmail || "");
+          const st = escapeHtml(r.status || "invited");
+          const meta = nm ? `${nm} (${em})` : em;
+          return `
+            <article class="summary-card" style="margin-bottom:12px;">
+              <h4 style="margin:0;">${meta}</h4>
+              <div class="small-note" style="margin-top:6px;">Status: ${st}</div>
+              <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+                <button class="btn-secondary" type="button" data-remove-roster="${r.id}">Remove</button>
+              </div>
+            </article>
+          `;
+        })
+        .join("")
+    : `<p class="small-note">No students yet. Add students by email.</p>`;
+
+  setAppHtml(`
+    <section class="screen" aria-labelledby="rosterTitle">
+      <h2 id="rosterTitle">Class roster</h2>
+      <p class="small-note">Class: ${escapeHtml(selectedClassName || "")}</p>
+
+      <div class="summary-card" style="margin-top:14px;">
+        <h4 style="margin-top:0;">Add student</h4>
+
+        <label for="studentRosterName">Student name (optional)</label>
+        <input id="studentRosterName" type="text" placeholder="Example: Alex" autocomplete="off" />
+
+        <label for="studentRosterEmail">Student email</label>
+        <input id="studentRosterEmail" type="email" placeholder="Example: 123456@student.auhsd.us" autocomplete="off" />
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
+          <button class="btn-primary" type="button" id="btnAddStudent">Add to roster</button>
+          <button class="btn-secondary" type="button" id="btnBackToClasses">Back to classes</button>
+        </div>
+
+        <p id="rosterError" style="color:#b00020; margin-top:10px;"></p>
+
+        <p class="small-note" style="margin-top:10px;">
+          After you add a student, they just log in with that same email.
+          Their account will automatically attach to this class.
+        </p>
+      </div>
+
+      <div style="margin-top:16px;">
+        ${listHtml}
+      </div>
+    </section>
+  `);
+
+  $("btnAddStudent")?.addEventListener("click", addStudentToRoster);
+  $("btnBackToClasses")?.addEventListener("click", () => {
+    cleanupRosterRealtime();
+    selectedClassId = null;
+    selectedClassName = null;
+    goTo("teacherClasses");
+  });
+
+  document.querySelectorAll("[data-remove-roster]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-remove-roster");
+      if (id) removeRosterEntry(id);
+    });
+  });
+}
+
 function renderStudentAuthScreen() {
   const signedIn = !!authUser && activeRole === "student";
 
@@ -687,12 +948,8 @@ function renderStudentAuthScreen() {
 
             <div class="summary-card" style="margin-top:14px;">
               <h4 style="margin-top:0;">Google sign-in</h4>
-              <button class="btn-primary" type="button" id="btnStudentGoogle">
-                Sign in with Google
-              </button>
-              <p class="small-note" style="margin-top:10px;">
-                If a popup is blocked, allow popups for this site and try again.
-              </p>
+              <button class="btn-primary" type="button" id="btnStudentGoogle">Sign in with Google</button>
+              <p class="small-note" style="margin-top:10px;">If popups are blocked, allow popups for this site.</p>
             </div>
 
             <div class="summary-card" style="margin-top:14px;">
@@ -717,9 +974,7 @@ function renderStudentAuthScreen() {
           `
       }
 
-      <button class="btn-secondary" type="button" style="margin-top:16px;" id="btnBackLanding">
-        Back
-      </button>
+      <button class="btn-secondary" type="button" style="margin-top:16px;" id="btnBackLanding">Back</button>
     </section>
   `);
 
@@ -753,10 +1008,8 @@ function renderStudentHomeScreen() {
 
   const assignmentMessage =
     status === "active" && classId
-      ? `<p class="small-note">You are assigned to a class. You are ready to start trips.</p>`
-      : `<p class="small-note">
-           Your profile is created. Next, your teacher will assign you to a class.
-         </p>`;
+      ? `<p class="small-note">You are assigned to a class. You are ready for trip saving next.</p>`
+      : `<p class="small-note">Your profile is created. Your teacher still needs to add your email to a class roster.</p>`;
 
   setAppHtml(`
     <section class="screen" aria-labelledby="studentHomeTitle">
@@ -777,9 +1030,7 @@ function renderStudentHomeScreen() {
         </div>
       </div>
 
-      <div style="margin-top:14px;">
-        ${assignmentMessage}
-      </div>
+      <div style="margin-top:14px;">${assignmentMessage}</div>
 
       <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
         <button class="btn-secondary" type="button" id="btnSignOut">Sign out</button>
@@ -803,7 +1054,6 @@ function wireSidebar() {
     item.addEventListener("click", () => {
       if (!screen) return;
 
-      // Teacher screens
       if (screen === "teacherClasses" || screen === "createClass") {
         if (!authUser || activeRole !== "teacher") {
           setRoleIntent("teacher");
@@ -812,7 +1062,6 @@ function wireSidebar() {
         }
       }
 
-      // Student screens
       if (screen === "studentHome") {
         if (!authUser || activeRole !== "student") {
           setRoleIntent("student");
@@ -843,18 +1092,25 @@ onAuthStateChanged(auth, async user => {
 
   if (!authUser) {
     cleanupTeacherRealtime();
+    cleanupRosterRealtime();
     studentProfile = null;
     activeRole = "none";
+    selectedClassId = null;
+    selectedClassName = null;
 
-    // If user logs out while in protected screens
-    if (currentScreen === "teacherClasses" || currentScreen === "createClass") goTo("landing");
-    if (currentScreen === "studentHome") goTo("landing");
+    if (currentScreen === "teacherClasses" || currentScreen === "createClass" || currentScreen === "classRoster") {
+      goTo("landing");
+      return;
+    }
+    if (currentScreen === "studentHome") {
+      goTo("landing");
+      return;
+    }
 
     render();
     return;
   }
 
-  // Signed in
   const intended = getRoleIntent();
 
   try {
@@ -872,6 +1128,9 @@ onAuthStateChanged(auth, async user => {
     } else {
       activeRole = "student";
       cleanupTeacherRealtime();
+      cleanupRosterRealtime();
+      selectedClassId = null;
+      selectedClassName = null;
 
       studentProfile = await ensureStudentProfile(authUser);
 
@@ -882,10 +1141,10 @@ onAuthStateChanged(auth, async user => {
     }
   } catch (err) {
     console.error(err);
-    // Safe fallback
     activeRole = "none";
     studentProfile = null;
     cleanupTeacherRealtime();
+    cleanupRosterRealtime();
     goTo("landing");
     return;
   }
