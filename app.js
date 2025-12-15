@@ -1,7 +1,8 @@
 /* =========================================================
    CBI TRIP PLANNER APP
    Firebase Auth + Firestore
-   Teacher classes + Class roster + Student login auto-assign
+   Teacher classes + roster + student auto-assign
+   Teacher roster shows assignment status + view student trips
    ========================================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -71,8 +72,19 @@ let selectedClassMeta = null;
 let rosterList = [];
 let unsubscribeRoster = null;
 
-// Student profile
+// Roster status map (email -> status info)
+let rosterStatusMap = {}; // { [emailLower]: { found, studentUid, assignedToThisClass, assignedElsewhere, classId, teacherId } }
+
+// Student profile (current signed-in user if they are a student)
 let studentProfile = null;
+
+// Teacher viewing a student's trips
+let selectedStudent = null; // { uid, email, name }
+let studentTrips = [];
+let unsubscribeStudentTrips = null;
+
+// Teacher viewing a single trip
+let selectedTrip = null; // { id, ...data }
 
 /* =========================================================
    DOM HELPERS
@@ -162,6 +174,7 @@ async function teacherSignInWithGoogle() {
 
 async function teacherCreateAccountEmail() {
   setError("teacherAuthError", "");
+
   const email = ($("teacherEmail")?.value || "").trim();
   const pass = $("teacherPassword")?.value || "";
   const name = ($("teacherName")?.value || "").trim();
@@ -182,6 +195,7 @@ async function teacherCreateAccountEmail() {
 
 async function teacherSignInEmail() {
   setError("teacherAuthError", "");
+
   const email = ($("teacherEmail")?.value || "").trim();
   const pass = $("teacherPassword")?.value || "";
 
@@ -270,14 +284,44 @@ async function ensureStudentProfileAndAutoAssign(user) {
    SIGN OUT
    ========================================================= */
 
+function cleanupTeacherRealtime() {
+  if (unsubscribeClasses) {
+    unsubscribeClasses();
+    unsubscribeClasses = null;
+  }
+  teacherClasses = [];
+}
+
+function cleanupRosterRealtime() {
+  if (unsubscribeRoster) {
+    unsubscribeRoster();
+    unsubscribeRoster = null;
+  }
+  rosterList = [];
+  rosterStatusMap = {};
+}
+
+function cleanupStudentTripsRealtime() {
+  if (unsubscribeStudentTrips) {
+    unsubscribeStudentTrips();
+    unsubscribeStudentTrips = null;
+  }
+  studentTrips = [];
+  selectedStudent = null;
+  selectedTrip = null;
+}
+
 async function appSignOut() {
   try {
     await signOut(auth);
     cleanupTeacherRealtime();
     cleanupRosterRealtime();
+    cleanupStudentTripsRealtime();
+
     studentProfile = null;
     selectedClassId = null;
     selectedClassMeta = null;
+
     goTo("landing");
   } catch (err) {
     console.error(err);
@@ -287,15 +331,8 @@ async function appSignOut() {
 
 /* =========================================================
    FIRESTORE: TEACHER CLASSES
+   Path: /teachers/{teacherUid}/classes/{classId}
    ========================================================= */
-
-function cleanupTeacherRealtime() {
-  if (unsubscribeClasses) {
-    unsubscribeClasses();
-    unsubscribeClasses = null;
-  }
-  teacherClasses = [];
-}
 
 function startTeacherClassesRealtime(teacherUid) {
   cleanupTeacherRealtime();
@@ -386,14 +423,6 @@ async function deleteClass(classId) {
    Path: /teachers/{teacherUid}/classes/{classId}/roster/{rosterId}
    ========================================================= */
 
-function cleanupRosterRealtime() {
-  if (unsubscribeRoster) {
-    unsubscribeRoster();
-    unsubscribeRoster = null;
-  }
-  rosterList = [];
-}
-
 function startRosterRealtime(teacherUid, classId) {
   cleanupRosterRealtime();
   if (!teacherUid || !classId) return;
@@ -405,7 +434,10 @@ function startRosterRealtime(teacherUid, classId) {
     q,
     snapshot => {
       rosterList = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      if (currentScreen === "classRoster") renderClassRosterScreen();
+      // After roster refresh, update assignment status map
+      refreshRosterAssignmentStatuses().then(() => {
+        if (currentScreen === "classRoster") renderClassRosterScreen();
+      });
     },
     err => {
       console.error(err);
@@ -481,6 +513,133 @@ async function removeStudentFromRoster(rosterId) {
 }
 
 /* =========================================================
+   ROSTER STATUS: ASSIGNED OR NOT
+   Checks /students by email
+   ========================================================= */
+
+function chunkArray(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+async function refreshRosterAssignmentStatuses() {
+  rosterStatusMap = {};
+
+  if (!authUser || !selectedClassId) return;
+
+  const emails = rosterList
+    .map(r => String(r.email || "").toLowerCase().trim())
+    .filter(Boolean);
+
+  if (!emails.length) return;
+
+  // Firestore "in" queries support up to 10 values, so chunk by 10.
+  const chunks = chunkArray([...new Set(emails)], 10);
+
+  for (const chunk of chunks) {
+    try {
+      const qStudents = query(collection(db, "students"), where("email", "in", chunk));
+      const snap = await getDocs(qStudents);
+
+      // Mark found students
+      snap.docs.forEach(d => {
+        const data = d.data() || {};
+        const email = String(data.email || "").toLowerCase().trim();
+        if (!email) return;
+
+        const teacherId = data.teacherId || null;
+        const classId = data.classId || null;
+
+        const assignedToThisClass = teacherId === authUser.uid && classId === selectedClassId;
+        const assignedElsewhere = !!(teacherId && classId) && !assignedToThisClass;
+
+        rosterStatusMap[email] = {
+          found: true,
+          studentUid: d.id,
+          teacherId,
+          classId,
+          assignedToThisClass,
+          assignedElsewhere
+        };
+      });
+
+      // Mark missing students as not found
+      chunk.forEach(email => {
+        if (!rosterStatusMap[email]) {
+          rosterStatusMap[email] = {
+            found: false,
+            studentUid: null,
+            teacherId: null,
+            classId: null,
+            assignedToThisClass: false,
+            assignedElsewhere: false
+          };
+        }
+      });
+    } catch (err) {
+      console.error("Roster status lookup failed:", err);
+      // Fail soft: just leave map entries empty for that chunk
+      chunk.forEach(email => {
+        if (!rosterStatusMap[email]) {
+          rosterStatusMap[email] = {
+            found: false,
+            studentUid: null,
+            teacherId: null,
+            classId: null,
+            assignedToThisClass: false,
+            assignedElsewhere: false
+          };
+        }
+      });
+    }
+  }
+}
+
+/* =========================================================
+   TEACHER: VIEW STUDENT TRIPS
+   Path: /students/{studentUid}/trips/{tripId}
+   ========================================================= */
+
+function openTeacherStudentTrips(studentUid, email, name) {
+  if (!authUser) return goTo("teacherAuth");
+  if (!studentUid) return;
+
+  cleanupStudentTripsRealtime();
+
+  selectedStudent = {
+    uid: studentUid,
+    email: email || "",
+    name: name || ""
+  };
+
+  const tripsRef = collection(db, "students", studentUid, "trips");
+  const qTrips = query(tripsRef, orderBy("createdAt", "desc"));
+
+  unsubscribeStudentTrips = onSnapshot(
+    qTrips,
+    snap => {
+      studentTrips = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (currentScreen === "teacherStudentTrips") renderTeacherStudentTripsScreen();
+    },
+    err => {
+      console.error(err);
+      if (currentScreen === "teacherStudentTrips") {
+        setError("tripsError", err?.message || "Could not load trips. Check rules.");
+      }
+    }
+  );
+
+  goTo("teacherStudentTrips");
+}
+
+function openTeacherTripDetails(tripId) {
+  const found = studentTrips.find(t => t.id === tripId) || null;
+  selectedTrip = found;
+  goTo("teacherTripDetails");
+}
+
+/* =========================================================
    RENDER
    ========================================================= */
 
@@ -490,8 +649,12 @@ function render() {
   if (currentScreen === "teacherClasses") return renderTeacherClassesScreen();
   if (currentScreen === "createClass") return renderCreateClassScreen();
   if (currentScreen === "classRoster") return renderClassRosterScreen();
+
   if (currentScreen === "studentAuth") return renderStudentAuthScreen();
   if (currentScreen === "studentHome") return renderStudentHomeScreen();
+
+  if (currentScreen === "teacherStudentTrips") return renderTeacherStudentTripsScreen();
+  if (currentScreen === "teacherTripDetails") return renderTeacherTripDetailsScreen();
 
   return renderLandingScreen();
 }
@@ -702,14 +865,57 @@ function renderClassRosterScreen() {
     ? rosterList
         .map(s => {
           const name = escapeHtml(s.name || "");
-          const email = escapeHtml(s.email || "");
+          const emailRaw = String(s.email || "");
+          const email = emailRaw.toLowerCase().trim();
+          const emailSafe = escapeHtml(emailRaw);
+
+          const status = rosterStatusMap[email];
+          let badgeText = "Not assigned";
+          let badgeStyle = "background:#e6e6e6; color:#333;";
+          let subText = "Student has not logged in yet, or email does not match a student profile.";
+
+          if (status?.found && status.assignedToThisClass) {
+            badgeText = "Assigned";
+            badgeStyle = "background:#1AA489; color:#fff;";
+            subText = "Student profile is assigned to this class.";
+          } else if (status?.found && status.assignedElsewhere) {
+            badgeText = "Assigned elsewhere";
+            badgeStyle = "background:#f2c94c; color:#333;";
+            subText = "Student is assigned to a different class.";
+          } else if (status?.found && !status.assignedElsewhere) {
+            badgeText = "Profile found";
+            badgeStyle = "background:#dbeafe; color:#1e40af;";
+            subText = "Student profile exists, but is not assigned to a class yet.";
+          }
+
+          const viewTripsBtn =
+            status?.found && status?.studentUid && status.assignedToThisClass
+              ? `<button class="btn-primary" type="button" data-viewtrips="${escapeHtml(status.studentUid)}" data-email="${emailSafe}" data-name="${name}">
+                   View trips
+                 </button>`
+              : "";
+
           const showName = name ? `<div><strong>${name}</strong></div>` : "";
+
           return `
             <div class="summary-card" style="margin-bottom:12px;">
-              ${showName}
-              <div class="small-note">${email}</div>
+              <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
+                <div>
+                  ${showName}
+                  <div class="small-note">${emailSafe}</div>
+                  <div class="small-note" style="margin-top:6px;">${escapeHtml(subText)}</div>
+                </div>
+
+                <div style="flex-shrink:0;">
+                  <span style="display:inline-block; padding:6px 10px; border-radius:999px; font-size:12px; ${badgeStyle}">
+                    ${escapeHtml(badgeText)}
+                  </span>
+                </div>
+              </div>
+
               <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
-                <button class="btn-secondary" type="button" data-remove="${s.id}">Remove</button>
+                ${viewTripsBtn}
+                <button class="btn-secondary" type="button" data-remove="${escapeHtml(s.id)}">Remove</button>
               </div>
             </div>
           `;
@@ -729,17 +935,18 @@ function renderClassRosterScreen() {
         <input id="rosterEmail" type="email" placeholder="Example: 123456@student.auhsd.us" autocomplete="off" />
 
         <label for="rosterName">Student name (optional)</label>
-        <input id="rosterName" type="text" placeholder="Example: Beau K." autocomplete="off" />
+        <input id="rosterName" type="text" placeholder="Example: Student name" autocomplete="off" />
 
         <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
           <button class="btn-primary" type="button" id="btnAddStudent">Add to roster</button>
+          <button class="btn-secondary" type="button" id="btnRefreshStatus">Refresh status</button>
           <button class="btn-secondary" type="button" id="btnBackClasses">Back to classes</button>
         </div>
 
         <p id="rosterError" style="color:#b00020; margin-top:10px;"></p>
 
         <p class="small-note" style="margin-top:10px;">
-          Students will auto-land in this class when they log in and their email matches a roster entry.
+          Assigned means: the student logged in AND their student profile points to this class.
         </p>
       </div>
 
@@ -751,8 +958,16 @@ function renderClassRosterScreen() {
   `);
 
   $("btnAddStudent")?.addEventListener("click", addStudentToRoster);
+
+  $("btnRefreshStatus")?.addEventListener("click", async () => {
+    setError("rosterError", "");
+    await refreshRosterAssignmentStatuses();
+    renderClassRosterScreen();
+  });
+
   $("btnBackClasses")?.addEventListener("click", () => {
     cleanupRosterRealtime();
+    cleanupStudentTripsRealtime();
     selectedClassId = null;
     selectedClassMeta = null;
     goTo("teacherClasses");
@@ -762,6 +977,15 @@ function renderClassRosterScreen() {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-remove");
       if (id) removeStudentFromRoster(id);
+    });
+  });
+
+  document.querySelectorAll("[data-viewtrips]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const uid = btn.getAttribute("data-viewtrips");
+      const email = btn.getAttribute("data-email") || "";
+      const name = btn.getAttribute("data-name") || "";
+      if (uid) openTeacherStudentTrips(uid, email, name);
     });
   });
 }
@@ -862,6 +1086,119 @@ function renderStudentHomeScreen() {
   $("btnSignOut")?.addEventListener("click", appSignOut);
 }
 
+function renderTeacherStudentTripsScreen() {
+  if (!authUser) return goTo("teacherAuth");
+  if (!selectedStudent?.uid) return goTo("classRoster");
+
+  const titleName = selectedStudent.name ? escapeHtml(selectedStudent.name) : "Student";
+  const titleEmail = escapeHtml(selectedStudent.email || "");
+
+  const tripsHtml = studentTrips.length
+    ? studentTrips
+        .map(t => {
+          const destName = escapeHtml(t.destinationName || "Trip");
+          const tripDate = escapeHtml(t.tripDate || "");
+          const when = tripDate ? `<div class="small-note">Date: ${tripDate}</div>` : "";
+
+          return `
+            <div class="summary-card" style="margin-bottom:12px;">
+              <h4 style="margin-top:0; margin-bottom:6px;">${destName}</h4>
+              ${when}
+              <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+                <button class="btn-primary" type="button" data-open-trip="${escapeHtml(t.id)}">Open trip</button>
+              </div>
+            </div>
+          `;
+        })
+        .join("")
+    : `<p class="small-note">No trips saved yet for this student.</p>`;
+
+  setAppHtml(`
+    <section class="screen" aria-labelledby="tripsTitle">
+      <h2 id="tripsTitle">Student trips</h2>
+
+      <div class="summary-card" style="margin-top:12px;">
+        <div class="summary-row">
+          <span class="summary-label">Student:</span>
+          <span class="summary-value">${titleName}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Email:</span>
+          <span class="summary-value">${titleEmail}</span>
+        </div>
+      </div>
+
+      <p id="tripsError" style="color:#b00020; margin-top:10px;"></p>
+
+      <div style="margin-top:16px;">
+        ${tripsHtml}
+      </div>
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
+        <button class="btn-secondary" type="button" id="btnBackRoster">Back to roster</button>
+      </div>
+    </section>
+  `);
+
+  $("btnBackRoster")?.addEventListener("click", () => {
+    selectedTrip = null;
+    goTo("classRoster");
+  });
+
+  document.querySelectorAll("[data-open-trip]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-open-trip");
+      if (id) openTeacherTripDetails(id);
+    });
+  });
+}
+
+function renderTeacherTripDetailsScreen() {
+  if (!authUser) return goTo("teacherAuth");
+  if (!selectedStudent?.uid) return goTo("classRoster");
+  if (!selectedTrip?.id) return goTo("teacherStudentTrips");
+
+  // Safe pretty print, but keep it readable
+  const tripJson = escapeHtml(JSON.stringify(selectedTrip, null, 2));
+
+  const destName = escapeHtml(selectedTrip.destinationName || "Trip");
+  const address = escapeHtml(selectedTrip.destinationAddress || "");
+  const date = escapeHtml(selectedTrip.tripDate || "");
+  const meet = escapeHtml(selectedTrip.meetTime || "");
+
+  setAppHtml(`
+    <section class="screen" aria-labelledby="tripTitle">
+      <h2 id="tripTitle">Trip details</h2>
+
+      <div class="summary-card" style="margin-top:12px;">
+        <h4 style="margin-top:0;">${destName}</h4>
+        ${address ? `<div class="small-note">${address}</div>` : ""}
+        <div class="summary-row" style="margin-top:10px;">
+          <span class="summary-label">Date:</span>
+          <span class="summary-value">${date || "-"}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Meet time:</span>
+          <span class="summary-value">${meet || "-"}</span>
+        </div>
+      </div>
+
+      <div class="summary-card" style="margin-top:12px;">
+        <h4 style="margin-top:0;">Raw trip data</h4>
+        <pre style="white-space:pre-wrap; word-break:break-word; font-size:12px; line-height:1.4; margin:0;">${tripJson}</pre>
+      </div>
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
+        <button class="btn-secondary" type="button" id="btnBackTrips">Back to trips</button>
+        <button class="btn-secondary" type="button" id="btnBackRoster">Back to roster</button>
+      </div>
+    </section>
+  `);
+
+  $("btnBackTrips")?.addEventListener("click", () => goTo("teacherStudentTrips"));
+  $("btnBackRoster")?.addEventListener("click", () => goTo("classRoster"));
+}
+
 /* =========================================================
    SIDEBAR WIRING
    ========================================================= */
@@ -875,12 +1212,20 @@ function wireSidebar() {
     item.addEventListener("click", () => {
       if (!screen) return;
 
+      // Guard teacher screens
       if (screen === "teacherClasses" || screen === "createClass") {
         if (!authUser) return goTo("teacherAuth");
       }
 
+      // Guard student home
       if (screen === "studentHome") {
         if (!authUser) return goTo("studentAuth");
+      }
+
+      // Do not allow jumping into internal teacher screens from sidebar
+      if (screen === "classRoster" || screen === "teacherStudentTrips" || screen === "teacherTripDetails") {
+        // ignore sidebar click
+        return;
       }
 
       goTo(screen);
@@ -906,6 +1251,8 @@ onAuthStateChanged(auth, async user => {
   if (!authUser) {
     cleanupTeacherRealtime();
     cleanupRosterRealtime();
+    cleanupStudentTripsRealtime();
+
     studentProfile = null;
     selectedClassId = null;
     selectedClassMeta = null;
@@ -917,16 +1264,20 @@ onAuthStateChanged(auth, async user => {
   }
 
   try {
+    // Teacher profile + teacher classes listener
     await ensureTeacherProfile(authUser);
     startTeacherClassesRealtime(authUser.uid);
 
+    // Student profile + auto-assign
     studentProfile = await ensureStudentProfileAndAutoAssign(authUser);
 
+    // If they just did student login, land them
     if (currentScreen === "studentAuth") {
       goTo("studentHome");
       return;
     }
 
+    // If they land here from teacher login or first load, go to classes
     if (currentScreen === "teacherAuth" || currentScreen === "landing") {
       goTo("teacherClasses");
       return;
