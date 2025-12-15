@@ -618,15 +618,48 @@ async function addStudentToRoster() {
   const emailRaw = ($("rosterEmail")?.value || "").trim();
   const nameRaw = ($("rosterName")?.value || "").trim();
 
-  const email = emailRaw.toLowerCase();
-  if (!email) {
+  const emailLower = emailRaw.toLowerCase().trim();
+  if (!emailLower) {
     setError("rosterError", "Student email is required.");
     return;
   }
-  if (!email.includes("@")) {
+  if (!emailLower.includes("@")) {
     setError("rosterError", "Enter a valid email address.");
     return;
   }
+
+  // Strong recommendation: use the email as the roster doc id (lowercased)
+  const rosterDocId = emailLower;
+
+  try {
+    const rosterDocRef = doc(
+      db,
+      "teachers",
+      authUser.uid,
+      "classes",
+      selectedClassId,
+      "roster",
+      rosterDocId
+    );
+
+    await setDoc(
+      rosterDocRef,
+      {
+        email: rosterDocId,      // stored lowercase for matching
+        name: nameRaw || "",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+
+    if ($("rosterEmail")) $("rosterEmail").value = "";
+    if ($("rosterName")) $("rosterName").value = "";
+  } catch (err) {
+    console.error(err);
+    setError("rosterError", err?.message || "Could not add student.");
+  }
+}
 
   try {
     const rosterDocRef = doc(
@@ -2017,4 +2050,5 @@ document.addEventListener("DOMContentLoaded", () => {
   wireSidebar();
   highlightSidebar("landing");
 });
+
 
