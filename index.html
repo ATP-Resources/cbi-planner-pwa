@@ -1,118 +1,111 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>CBI Trip Planner</title>
+  <meta charset="UTF-8" />
+  <title>CBI Trip Planner</title>
 
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta
-        name="description"
-        content="CBI Trip Planner for Adult Transition Program community based instruction planning."
-    />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta
+    name="description"
+    content="CBI Trip Planner for Adult Transition Program community based instruction planning."
+  />
 
-    <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-        crossorigin="anonymous"
-        referrerpolicy="no-referrer"
-    />
+  <!-- Fonts for CSS-rendered typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 
-    <link
-        href="https://fonts.googleapis.com/css2?family=Oswald:wght@800&family=Poppins:wght@500;600;700&display=swap"
-        rel="stylesheet"
-    />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    referrerpolicy="no-referrer"
+  />
 
-    <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
-    <div class="app-shell">
-        
-        <aside class="sidebar" aria-label="CBI Trip Planner navigation">
-            <div class="sidebar-header">
-                <img
-                    class="sidebar-logo"
-                    src="img/cbi-trip-planner-logo.png"
-                    alt="CBI Trip Planner Logo"
-                />
-            </div>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="CBI Trip Planner navigation">
+      <!-- Brand header -->
+      <div class="sidebar-header">
+        <div class="brand" aria-label="CBI Trip Planner">
+          <img
+            class="brand-icon"
+            src="img/cbi-trip-planner-logo.png"
+            alt="CBI Trip Planner icon"
+          />
+          <div class="brand-text">
+            <div class="brand-cbi">CBI</div>
+            <div class="brand-sub">Trip Planner</div>
+          </div>
+        </div>
+      </div>
 
-            <nav class="sidebar-nav" aria-label="Screens">
-                <button type="button" class="sidebar-item active" data-screen="landing">
-                    <i class="fa-solid fa-door-open"></i>
-                    <span>Landing</span>
-                </button>
+      <nav class="sidebar-nav" aria-label="Screens">
+        <button type="button" class="sidebar-item" data-screen="landing">
+          <i class="fa-solid fa-door-open"></i>
+          <span>Landing</span>
+        </button>
 
-                <div class="sidebar-divider"></div>
+        <div class="sidebar-divider"></div>
 
-                <button type="button" class="sidebar-item" data-screen="teacherAuth">
-                    <i class="fa-solid fa-user-shield"></i>
-                    <span>Teacher login</span>
-                </button>
+        <button type="button" class="sidebar-item" data-screen="teacherAuth">
+          <i class="fa-solid fa-user-shield"></i>
+          <span>Teacher login</span>
+        </button>
 
-                <button type="button" class="sidebar-item" data-screen="teacherClasses">
-                    <i class="fa-solid fa-chalkboard-user"></i>
-                    <span>Teacher classes</span>
-                </button>
+        <button type="button" class="sidebar-item" data-screen="teacherClasses">
+          <i class="fa-solid fa-chalkboard-user"></i>
+          <span>Teacher classes</span>
+        </button>
 
-                <div class="sidebar-divider"></div>
+        <div class="sidebar-divider"></div>
 
-                <button type="button" class="sidebar-item" data-screen="studentAuth">
-                    <i class="fa-solid fa-graduation-cap"></i>
-                    <span>Student login</span>
-                </button>
+        <button type="button" class="sidebar-item" data-screen="studentAuth">
+          <i class="fa-solid fa-graduation-cap"></i>
+          <span>Student login</span>
+        </button>
 
-                <button type="button" class="sidebar-item" data-screen="studentHome">
-                    <i class="fa-solid fa-house"></i>
-                    <span>Student home</span>
-                </button>
+        <button type="button" class="sidebar-item" data-screen="studentHome">
+          <i class="fa-solid fa-house"></i>
+          <span>Student home</span>
+        </button>
 
-                <button type="button" class="sidebar-item" data-screen="planDestination">
-                    <i class="fa-solid fa-location-dot"></i>
-                    <span>Step 1</span>
-                </button>
+        <button type="button" class="sidebar-item" data-screen="planDestination">
+          <i class="fa-solid fa-location-dot"></i>
+          <span>Step 1</span>
+        </button>
 
-                <button type="button" class="sidebar-item" data-screen="mapsInstructions">
-                    <i class="fa-solid fa-map"></i>
-                    <span>Step 2</span>
-                </button>
+        <button type="button" class="sidebar-item" data-screen="mapsInstructions">
+          <i class="fa-solid fa-map"></i>
+          <span>Step 2</span>
+        </button>
 
-                <button type="button" class="sidebar-item" data-screen="routeDetails">
-                    <i class="fa-solid fa-bus-simple"></i>
-                    <span>Step 3 and 4</span>
-                </button>
+        <button type="button" class="sidebar-item" data-screen="routeDetails">
+          <i class="fa-solid fa-bus-simple"></i>
+          <span>Step 3 and 4</span>
+        </button>
 
-                <button type="button" class="sidebar-item" data-screen="summary">
-                    <i class="fa-solid fa-clipboard-list"></i>
-                    <span>Trip summary</span>
-                </button>
+        <button type="button" class="sidebar-item" data-screen="summary">
+          <i class="fa-solid fa-clipboard-list"></i>
+          <span>Trip summary</span>
+        </button>
 
-                <button type="button" class="sidebar-item" data-screen="studentPastTrips">
-                    <i class="fa-solid fa-clock-rotate-left"></i>
-                    <span>Past trips</span>
-                </button>
-            </nav>
-        </aside>
+        <button type="button" class="sidebar-item" data-screen="studentPastTrips">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span>Past trips</span>
+        </button>
+      </nav>
+    </aside>
 
-        <main class="main" aria-live="polite">
-            <div id="app" class="app-root">
-                <h1 class="landing-heading">Welcome to the CBI Trip Planner</h1>
-                
-                <p class="mode-selector-prompt">Choose your mode to start planning or reviewing trips.</p>
+    <main class="main" aria-live="polite">
+      <div id="app" class="app-root">
+        <p>This app needs JavaScript to run.</p>
+      </div>
+    </main>
+  </div>
 
-                <div class="mode-buttons-container">
-                    <button class="mode-button active">Teacher</button>
-                    <button class="mode-button">Student</button>
-                </div>
-
-                <p class="explanation-text">
-                    This tool allows students to plan their route details and document their community-based instruction trips. Teachers can then review, approve, and track progress.
-                </p>
-                
-            </div>
-        </main>
-    </div>
-
-    <script type="module" src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
