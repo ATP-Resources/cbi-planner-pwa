@@ -1,9 +1,8 @@
 /* =========================================================
-   CBI PLANNER
-   Teacher + Student login (Google)
-   Teacher creates classes, adds students
-   Student lands in their class automatically
-   Student fills trip steps and saves trips to Firestore
+   CBI TRIP PLANNER
+   Firebase Auth + Firestore
+   Teacher login + Teacher classes
+   Student login + Auto profile creation
    ========================================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -12,7 +11,10 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
-  signOut
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
   getFirestore,
@@ -21,10 +23,12 @@ import {
   getDoc,
   collection,
   addDoc,
-  getDocs,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  serverTimestamp,
   query,
-  orderBy,
-  serverTimestamp
+  orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 /* =========================================================
@@ -52,72 +56,11 @@ const db = getFirestore(firebaseApp);
 let currentScreen = "landing";
 let authUser = null;
 
-// Which role is actively using the app UI right now
-// "teacher" or "student" or null
-let activeRole = null;
+let activeRole = "none"; // "teacher" | "student" | "none"
+let studentProfile = null;
 
-// Teacher state
 let teacherClasses = [];
-let selectedTeacherClassId = null;
-
-// Student state
-let studentEnrollment = null; 
-// studentEnrollment shape:
-// { teacherUid, classId, className, studentName, studentEmail }
-
-// Teacher view state
-let selectedStudentUidForTeacher = null;
-let selectedStudentNameForTeacher = "";
-
-/* =========================================================
-   TRIP STATE (STUDENT)
-   Keep the thinking work on students
-   ========================================================= */
-
-const currentTrip = {
-  destinationName: "",
-  destinationAddress: "",
-  tripDate: "",
-  meetTime: "",
-
-  routeThere: {
-    busNumber: "",
-    direction: "",
-    boardStop: "",
-    exitStop: "",
-    departTime: "",
-    arriveTime: "",
-    totalTime: ""
-  },
-
-  routeBack: {
-    busNumber: "",
-    direction: "",
-    boardStop: "",
-    exitStop: "",
-    departTime: "",
-    arriveTime: "",
-    totalTime: ""
-  },
-
-  purpose: {
-    lifeSkills: false,
-    communityAccess: false,
-    moneySkills: false,
-    communication: false,
-    socialSkills: false,
-    employmentPrep: false,
-    recreationLeisure: false,
-    safetySkills: false,
-    otherText: ""
-  },
-
-  packing: {
-    moneyNeeded: "",
-    safetyRules: "",
-    whatToBring: ""
-  }
-};
+let unsubscribeClasses = null;
 
 /* =========================================================
    DOM HELPERS
@@ -125,11 +68,6 @@ const currentTrip = {
 
 function $(id) {
   return document.getElementById(id);
-}
-
-function setAppHtml(html) {
-  const root = $("app");
-  if (root) root.innerHTML = html;
 }
 
 function escapeHtml(value) {
@@ -142,62 +80,112 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function setActiveRole(role) {
-  activeRole = role;
+function setAppHtml(html) {
+  const appRoot = $("app");
+  if (!appRoot) return;
+  appRoot.innerHTML = html;
 }
 
-function goTo(screen) {
-  currentScreen = screen;
+function setError(id, message) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = message || "";
+}
+
+/* =========================================================
+   ROLE INTENT (Landing choice)
+   ========================================================= */
+
+const ROLE_KEY = "cbi_role_intent";
+
+function setRoleIntent(role) {
+  localStorage.setItem(ROLE_KEY, role);
+}
+
+function getRoleIntent() {
+  const v = localStorage.getItem(ROLE_KEY);
+  if (v === "teacher" || v === "student") return v;
+  return "teacher";
+}
+
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+
+function goTo(screenName) {
+  currentScreen = screenName;
   render();
-  highlightSidebar();
+  highlightSidebar(screenName);
 }
 
-function highlightSidebar() {
-  document.querySelectorAll(".sidebar-item").forEach(btn => {
+function highlightSidebar(screenName) {
+  const items = document.querySelectorAll(".sidebar-item");
+  items.forEach(btn => {
     const target = btn.getAttribute("data-screen");
-    const active = target === currentScreen;
-    btn.classList.toggle("active", active);
-    if (active) btn.setAttribute("aria-current", "page");
-    else btn.removeAttribute("aria-current");
+    if (target === screenName) {
+      btn.classList.add("active");
+      btn.setAttribute("aria-current", "page");
+    } else {
+      btn.classList.remove("active");
+      btn.removeAttribute("aria-current");
+    }
   });
 }
 
 /* =========================================================
-   AUTH
+   AUTH HELPERS
    ========================================================= */
 
-async function signInGoogleAsTeacher() {
-  try {
-    setActiveRole("teacher");
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-  } catch (err) {
-    console.error(err);
-    alert(err?.message || "Teacher sign in failed.");
-  }
+async function ensureTeacherProfile(user) {
+  if (!user) return;
+
+  const teacherRef = doc(db, "teachers", user.uid);
+  const snap = await getDoc(teacherRef);
+
+  const payload = {
+    email: user.email || "",
+    name: user.displayName || "",
+    updatedAt: serverTimestamp()
+  };
+
+  if (!snap.exists()) payload.createdAt = serverTimestamp();
+
+  await setDoc(teacherRef, payload, { merge: true });
 }
 
-async function signInGoogleAsStudent() {
-  try {
-    setActiveRole("student");
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-  } catch (err) {
-    console.error(err);
-    alert(err?.message || "Student sign in failed.");
+async function ensureStudentProfile(user) {
+  if (!user) return null;
+
+  const studentRef = doc(db, "students", user.uid);
+  const snap = await getDoc(studentRef);
+
+  const payload = {
+    email: user.email || "",
+    name: user.displayName || "",
+    updatedAt: serverTimestamp()
+  };
+
+  // First login creates a real student profile doc
+  // teacherId and classId start empty until you add roster assignment
+  if (!snap.exists()) {
+    payload.createdAt = serverTimestamp();
+    payload.teacherId = null;
+    payload.classId = null;
+    payload.status = "pending"; // teacher will assign later
   }
+
+  await setDoc(studentRef, payload, { merge: true });
+
+  const fresh = await getDoc(studentRef);
+  return fresh.exists() ? { id: fresh.id, ...fresh.data() } : null;
 }
 
 async function appSignOut() {
   try {
     await signOut(auth);
-    authUser = null;
-    activeRole = null;
-    studentEnrollment = null;
-    teacherClasses = [];
-    selectedTeacherClassId = null;
-    selectedStudentUidForTeacher = null;
-    selectedStudentNameForTeacher = "";
+    cleanupTeacherRealtime();
+    studentProfile = null;
+    activeRole = "none";
     goTo("landing");
   } catch (err) {
     console.error(err);
@@ -206,1255 +194,711 @@ async function appSignOut() {
 }
 
 /* =========================================================
-   FIRESTORE PATHS
+   TEACHER AUTH ACTIONS
    ========================================================= */
 
-/*
-  Teachers:
-    /teachers/{teacherUid}
-    /teachers/{teacherUid}/classes/{classId}
-    /teachers/{teacherUid}/classes/{classId}/students/{studentUid}
-    /teachers/{teacherUid}/classes/{classId}/students/{studentUid}/trips/{tripId}
+async function teacherSignInWithGoogle() {
+  setError("teacherAuthError", "");
+  try {
+    setRoleIntent("teacher");
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    console.error(err);
+    setError("teacherAuthError", err?.message || "Google sign-in failed.");
+  }
+}
 
-  Enrollment shortcut:
-    /enrollments/{studentUid}
-    {
-      teacherUid,
-      classId,
-      className,
-      studentName,
-      studentEmail,
-      updatedAt
-    }
+async function teacherCreateAccountEmail() {
+  setError("teacherAuthError", "");
 
-  This makes student "auto land" easy.
-*/
+  setRoleIntent("teacher");
+
+  const email = ($("teacherEmail")?.value || "").trim();
+  const pass = $("teacherPassword")?.value || "";
+  const name = ($("teacherName")?.value || "").trim();
+
+  if (!email || !pass) {
+    setError("teacherAuthError", "Please enter an email and password.");
+    return;
+  }
+
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    if (name) await updateProfile(cred.user, { displayName: name });
+  } catch (err) {
+    console.error(err);
+    setError("teacherAuthError", err?.message || "Account creation failed.");
+  }
+}
+
+async function teacherSignInEmail() {
+  setError("teacherAuthError", "");
+
+  setRoleIntent("teacher");
+
+  const email = ($("teacherEmail")?.value || "").trim();
+  const pass = $("teacherPassword")?.value || "";
+
+  if (!email || !pass) {
+    setError("teacherAuthError", "Please enter an email and password.");
+    return;
+  }
+
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (err) {
+    console.error(err);
+    setError("teacherAuthError", err?.message || "Sign-in failed.");
+  }
+}
 
 /* =========================================================
-   TEACHER: PROFILE + CLASSES + ROSTER
+   STUDENT AUTH ACTIONS
    ========================================================= */
 
-async function ensureTeacherProfile(user) {
-  const teacherRef = doc(db, "teachers", user.uid);
-  await setDoc(
-    teacherRef,
-    {
-      email: user.email || "",
-      name: user.displayName || "",
-      updatedAt: serverTimestamp(),
-      createdAt: serverTimestamp()
+async function studentSignInWithGoogle() {
+  setError("studentAuthError", "");
+  try {
+    setRoleIntent("student");
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    console.error(err);
+    setError("studentAuthError", err?.message || "Google sign-in failed.");
+  }
+}
+
+async function studentCreateAccountEmail() {
+  setError("studentAuthError", "");
+
+  setRoleIntent("student");
+
+  const email = ($("studentEmail")?.value || "").trim();
+  const pass = $("studentPassword")?.value || "";
+  const name = ($("studentName")?.value || "").trim();
+
+  if (!email || !pass) {
+    setError("studentAuthError", "Please enter an email and password.");
+    return;
+  }
+
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    if (name) await updateProfile(cred.user, { displayName: name });
+  } catch (err) {
+    console.error(err);
+    setError("studentAuthError", err?.message || "Account creation failed.");
+  }
+}
+
+async function studentSignInEmail() {
+  setError("studentAuthError", "");
+
+  setRoleIntent("student");
+
+  const email = ($("studentEmail")?.value || "").trim();
+  const pass = $("studentPassword")?.value || "";
+
+  if (!email || !pass) {
+    setError("studentAuthError", "Please enter an email and password.");
+    return;
+  }
+
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (err) {
+    console.error(err);
+    setError("studentAuthError", err?.message || "Sign-in failed.");
+  }
+}
+
+/* =========================================================
+   FIRESTORE: TEACHER CLASSES
+   Path: /teachers/{teacherUid}/classes/{classId}
+   ========================================================= */
+
+function cleanupTeacherRealtime() {
+  if (unsubscribeClasses) {
+    unsubscribeClasses();
+    unsubscribeClasses = null;
+  }
+  teacherClasses = [];
+}
+
+function startTeacherClassesRealtime(teacherUid) {
+  cleanupTeacherRealtime();
+  if (!teacherUid) return;
+
+  const classesRef = collection(db, "teachers", teacherUid, "classes");
+  const q = query(classesRef, orderBy("createdAt", "desc"));
+
+  unsubscribeClasses = onSnapshot(
+    q,
+    snapshot => {
+      teacherClasses = snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+      if (currentScreen === "teacherClasses") renderTeacherClassesScreen();
     },
-    { merge: true }
+    err => {
+      console.error(err);
+      if (currentScreen === "teacherClasses") {
+        setError("classesError", err?.message || "Could not load classes.");
+      }
+    }
   );
 }
 
-async function loadTeacherClasses() {
-  if (!authUser) return;
+async function createClassFromForm() {
+  setError("createClassError", "");
 
-  const classesRef = collection(db, "teachers", authUser.uid, "classes");
-  const snap = await getDocs(query(classesRef, orderBy("createdAt", "desc")));
+  if (!authUser) {
+    setError("createClassError", "You must be signed in.");
+    return;
+  }
 
-  teacherClasses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
+  const className = ($("className")?.value || "").trim();
+  const schoolYear = ($("schoolYear")?.value || "").trim();
 
-async function teacherCreateClass() {
-  if (!authUser) return;
+  if (!className) {
+    setError("createClassError", "Class name is required.");
+    return;
+  }
 
-  const name = prompt("Class name");
-  if (!name) return;
-
-  const year = prompt("School year (example: 2025-2026)") || "";
-
-  const classesRef = collection(db, "teachers", authUser.uid, "classes");
-  await addDoc(classesRef, {
-    name: name.trim(),
-    schoolYear: year.trim(),
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
-
-  await loadTeacherClasses();
-  render();
-}
-
-function teacherOpenClass(classId) {
-  selectedTeacherClassId = classId;
-  goTo("teacherRoster");
-}
-
-async function teacherAddStudentToRoster() {
-  if (!authUser || !selectedTeacherClassId) return;
-
-  const studentEmail = (prompt("Student email (example: 123456@student.auhsd.us)") || "").trim();
-  if (!studentEmail) return;
-
-  const studentName = (prompt("Student name") || "").trim();
-
-  // For student auto login to work, we need a UID.
-  // Google login UID is not known until the student logs in.
-  // Solution: create roster doc by email first, then link UID later.
-  //
-  // But you asked: student logs in and lands in class automatically.
-  // To guarantee that, we will require you to add students AFTER they have logged in once,
-  // OR you can use the enrollment shortcut keyed by UID once you have it.
-  //
-  // Practical school-friendly workflow:
-  // 1) Student signs in once on a Chromebook
-  // 2) You copy their UID from a teacher screen (we will show it)
-  // 3) You click "Add student by UID" and they are enrolled forever
-
-  alert(
-    "Important:\n\nTo auto-place a student into a class, you need their student UID.\n\nNext screen will let you add students by UID.\n\nHave the student sign in once, then you can copy their UID."
-  );
-
-  goTo("teacherAddStudentUid");
-}
-
-async function teacherAddStudentByUid(uid, name, email) {
-  if (!authUser || !selectedTeacherClassId) return;
-
-  const classRef = doc(db, "teachers", authUser.uid, "classes", selectedTeacherClassId);
-  const classSnap = await getDoc(classRef);
-  const classData = classSnap.exists() ? classSnap.data() : {};
-  const className = classData?.name || "Class";
-
-  // 1) Write roster record
-  const studentRef = doc(
-    db,
-    "teachers",
-    authUser.uid,
-    "classes",
-    selectedTeacherClassId,
-    "students",
-    uid
-  );
-
-  await setDoc(
-    studentRef,
-    {
-      name: name || "",
-      email: email || "",
+  try {
+    const classesRef = collection(db, "teachers", authUser.uid, "classes");
+    await addDoc(classesRef, {
+      name: className,
+      schoolYear: schoolYear,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    },
-    { merge: true }
-  );
-
-  // 2) Write enrollment shortcut
-  const enrollmentRef = doc(db, "enrollments", uid);
-  await setDoc(
-    enrollmentRef,
-    {
-      teacherUid: authUser.uid,
-      classId: selectedTeacherClassId,
-      className: className,
-      studentName: name || "",
-      studentEmail: email || "",
-      updatedAt: serverTimestamp()
-    },
-    { merge: true }
-  );
-
-  goTo("teacherRoster");
-}
-
-async function teacherLoadRoster() {
-  if (!authUser || !selectedTeacherClassId) return [];
-
-  const rosterRef = collection(
-    db,
-    "teachers",
-    authUser.uid,
-    "classes",
-    selectedTeacherClassId,
-    "students"
-  );
-
-  const snap = await getDocs(query(rosterRef, orderBy("createdAt", "desc")));
-  return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
-}
-
-async function teacherViewStudentTrips(studentUid, studentName) {
-  selectedStudentUidForTeacher = studentUid;
-  selectedStudentNameForTeacher = studentName || "";
-  goTo("teacherStudentTrips");
-}
-
-async function teacherLoadStudentTrips(studentUid) {
-  if (!authUser || !selectedTeacherClassId || !studentUid) return [];
-
-  const tripsRef = collection(
-    db,
-    "teachers",
-    authUser.uid,
-    "classes",
-    selectedTeacherClassId,
-    "students",
-    studentUid,
-    "trips"
-  );
-
-  const snap = await getDocs(query(tripsRef, orderBy("createdAt", "desc")));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
-/* =========================================================
-   STUDENT: ENROLLMENT + TRIPS
-   ========================================================= */
-
-async function loadStudentEnrollment(uid) {
-  const enrollmentRef = doc(db, "enrollments", uid);
-  const snap = await getDoc(enrollmentRef);
-
-  if (!snap.exists()) {
-    return null;
+    });
+    goTo("teacherClasses");
+  } catch (err) {
+    console.error(err);
+    setError("createClassError", err?.message || "Could not create class.");
   }
-
-  return snap.data();
 }
 
-async function studentSaveTrip() {
+async function renameClass(classId) {
   if (!authUser) return;
-  if (!studentEnrollment) {
-    alert("You are not enrolled in a class yet. Ask your teacher.");
+
+  const found = teacherClasses.find(c => c.id === classId);
+  const currentName = found?.name || "";
+  const nextName = prompt("Rename class", currentName);
+  if (nextName == null) return;
+
+  const cleanName = nextName.trim();
+  if (!cleanName) {
+    alert("Class name cannot be blank.");
     return;
   }
 
-  const teacherUid = studentEnrollment.teacherUid;
-  const classId = studentEnrollment.classId;
-  const studentUid = authUser.uid;
-
-  const tripsRef = collection(
-    db,
-    "teachers",
-    teacherUid,
-    "classes",
-    classId,
-    "students",
-    studentUid,
-    "trips"
-  );
-
-  await addDoc(tripsRef, {
-    studentUid: studentUid,
-    studentEmail: authUser.email || "",
-    studentName: authUser.displayName || "",
-    trip: JSON.parse(JSON.stringify(currentTrip)),
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
-
-  alert("Trip saved.");
-  goTo("studentPastTrips");
-}
-
-async function studentLoadPastTrips() {
-  if (!authUser || !studentEnrollment) return [];
-
-  const teacherUid = studentEnrollment.teacherUid;
-  const classId = studentEnrollment.classId;
-
-  const tripsRef = collection(
-    db,
-    "teachers",
-    teacherUid,
-    "classes",
-    classId,
-    "students",
-    authUser.uid,
-    "trips"
-  );
-
-  const snap = await getDocs(query(tripsRef, orderBy("createdAt", "desc")));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
-/* =========================================================
-   STUDENT: MAPS BUTTON
-   ========================================================= */
-
-function openMapsForCurrentTrip() {
-  const origin = "Katella High School, Anaheim, CA";
-  const destination = `${currentTrip.destinationName} ${currentTrip.destinationAddress}`.trim();
-
-  if (!destination) {
-    alert("Enter destination name and address first.");
-    return;
+  try {
+    const classRef = doc(db, "teachers", authUser.uid, "classes", classId);
+    await updateDoc(classRef, { name: cleanName, updatedAt: serverTimestamp() });
+  } catch (err) {
+    console.error(err);
+    alert(err?.message || "Could not rename class.");
   }
+}
 
-  const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
-    origin
-  )}&destination=${encodeURIComponent(destination)}&travelmode=transit`;
+async function deleteClass(classId) {
+  if (!authUser) return;
 
-  window.open(url, "_blank");
+  const ok = confirm("Delete this class?");
+  if (!ok) return;
+
+  try {
+    const classRef = doc(db, "teachers", authUser.uid, "classes", classId);
+    await deleteDoc(classRef);
+  } catch (err) {
+    console.error(err);
+    alert(err?.message || "Could not delete class.");
+  }
 }
 
 /* =========================================================
-   STUDENT: PURPOSE SUMMARY
-   ========================================================= */
-
-function purposeSummaryListHtml() {
-  const p = currentTrip.purpose;
-  const items = [];
-
-  if (p.lifeSkills) items.push("Life skills");
-  if (p.communityAccess) items.push("Community access");
-  if (p.moneySkills) items.push("Money skills");
-  if (p.communication) items.push("Communication and self advocacy");
-  if (p.socialSkills) items.push("Social skills");
-  if (p.employmentPrep) items.push("Employment prep");
-  if (p.recreationLeisure) items.push("Recreation and leisure");
-  if (p.safetySkills) items.push("Safety skills");
-  if ((p.otherText || "").trim()) items.push(`Other: ${(p.otherText || "").trim()}`);
-
-  if (!items.length) return "<li>None selected yet.</li>";
-  return items.map(x => `<li>${escapeHtml(x)}</li>`).join("");
-}
-
-/* =========================================================
-   RENDER
+   RENDER: SCREENS
    ========================================================= */
 
 function render() {
-  if (currentScreen === "landing") {
-    setAppHtml(`
-      <section class="screen" aria-labelledby="landingTitle">
-        <h2 id="landingTitle">Welcome</h2>
-        <p>Choose your mode.</p>
+  if (currentScreen === "landing") return renderLandingScreen();
+  if (currentScreen === "teacherAuth") return renderTeacherAuthScreen();
+  if (currentScreen === "teacherClasses") return renderTeacherClassesScreen();
+  if (currentScreen === "createClass") return renderCreateClassScreen();
+  if (currentScreen === "studentAuth") return renderStudentAuthScreen();
+  if (currentScreen === "studentHome") return renderStudentHomeScreen();
 
-        <div class="row" style="margin-top:12px;">
-          <button class="btn-primary" type="button" id="btnTeacher">
-            Teacher
-          </button>
-          <button class="btn-secondary" type="button" id="btnStudent">
-            Student
-          </button>
-        </div>
-
-        <div class="card">
-          <div class="card-title">How this tool works</div>
-          <p class="muted">
-            Google Maps helps only with the map. Students still read and type the route details.
-            Trips save so teachers can review progress.
-          </p>
-        </div>
-      </section>
-    `);
-
-    $("btnTeacher")?.addEventListener("click", () => goTo("teacherAuth"));
-    $("btnStudent")?.addEventListener("click", () => goTo("studentAuth"));
-    return;
-  }
-
-  if (currentScreen === "teacherAuth") {
-    const signedIn = !!authUser && activeRole === "teacher";
-
-    setAppHtml(`
-      <section class="screen" aria-labelledby="tAuthTitle">
-        <h2 id="tAuthTitle">Teacher login</h2>
-
-        ${
-          signedIn
-            ? `
-              <div class="card">
-                <div class="card-title">Signed in</div>
-                <div class="summary-row">
-                  <span class="summary-label">Email</span>
-                  <span class="summary-value">${escapeHtml(authUser.email || "-")}</span>
-                </div>
-              </div>
-
-              <button class="btn-primary" type="button" id="btnGoClasses">
-                Go to classes
-              </button>
-
-              <button class="btn-secondary" type="button" id="btnSignOut">
-                Sign out
-              </button>
-            `
-            : `
-              <p>Sign in with your school Google account.</p>
-
-              <button class="btn-primary" type="button" id="btnTeacherGoogle">
-                Sign in with Google
-              </button>
-
-              <button class="btn-secondary" type="button" id="btnBack">
-                Back
-              </button>
-            `
-        }
-      </section>
-    `);
-
-    if (signedIn) {
-      $("btnGoClasses")?.addEventListener("click", () => goTo("teacherClasses"));
-      $("btnSignOut")?.addEventListener("click", appSignOut);
-    } else {
-      $("btnTeacherGoogle")?.addEventListener("click", signInGoogleAsTeacher);
-      $("btnBack")?.addEventListener("click", () => goTo("landing"));
-    }
-    return;
-  }
-
-  if (currentScreen === "teacherClasses") {
-    renderTeacherClassesScreen();
-    return;
-  }
-
-  if (currentScreen === "teacherRoster") {
-    renderTeacherRosterScreen();
-    return;
-  }
-
-  if (currentScreen === "teacherAddStudentUid") {
-    renderTeacherAddStudentUidScreen();
-    return;
-  }
-
-  if (currentScreen === "teacherStudentTrips") {
-    renderTeacherStudentTripsScreen();
-    return;
-  }
-
-  if (currentScreen === "studentAuth") {
-    const signedIn = !!authUser && activeRole === "student";
-
-    setAppHtml(`
-      <section class="screen" aria-labelledby="sAuthTitle">
-        <h2 id="sAuthTitle">Student login</h2>
-
-        ${
-          signedIn
-            ? `
-              <div class="card">
-                <div class="card-title">Signed in</div>
-                <div class="summary-row">
-                  <span class="summary-label">Email</span>
-                  <span class="summary-value">${escapeHtml(authUser.email || "-")}</span>
-                </div>
-              </div>
-
-              <button class="btn-primary" type="button" id="btnStudentContinue">
-                Continue
-              </button>
-
-              <button class="btn-secondary" type="button" id="btnSignOut">
-                Sign out
-              </button>
-            `
-            : `
-              <p>Sign in with your school Google account.</p>
-
-              <button class="btn-primary" type="button" id="btnStudentGoogle">
-                Sign in with Google
-              </button>
-
-              <button class="btn-secondary" type="button" id="btnBack">
-                Back
-              </button>
-            `
-        }
-      </section>
-    `);
-
-    if (signedIn) {
-      $("btnStudentContinue")?.addEventListener("click", () => goTo("studentHome"));
-      $("btnSignOut")?.addEventListener("click", appSignOut);
-    } else {
-      $("btnStudentGoogle")?.addEventListener("click", signInGoogleAsStudent);
-      $("btnBack")?.addEventListener("click", () => goTo("landing"));
-    }
-    return;
-  }
-
-  if (currentScreen === "studentHome") {
-    renderStudentHomeScreen();
-    return;
-  }
-
-  if (currentScreen === "planDestination") {
-    renderStudentStep1();
-    return;
-  }
-
-  if (currentScreen === "mapsInstructions") {
-    renderStudentStep2();
-    return;
-  }
-
-  if (currentScreen === "routeDetails") {
-    renderStudentStep3and4and5();
-    return;
-  }
-
-  if (currentScreen === "summary") {
-    renderStudentSummary();
-    return;
-  }
-
-  if (currentScreen === "studentPastTrips") {
-    renderStudentPastTrips();
-    return;
-  }
-
-  setAppHtml(`
-    <section class="screen">
-      <h2>Unknown screen</h2>
-      <button class="btn-secondary" type="button" onclick="goTo('landing')">Back</button>
-    </section>
-  `);
+  return renderLandingScreen();
 }
 
-/* =========================================================
-   TEACHER RENDERS
-   ========================================================= */
+function renderLandingScreen() {
+  setAppHtml(`
+    <section class="screen" aria-labelledby="landingTitle">
+      <h2 id="landingTitle">Welcome</h2>
+      <p>Choose your mode.</p>
 
-async function renderTeacherClassesScreen() {
-  if (!authUser || activeRole !== "teacher") {
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:16px;">
+        <button class="btn-primary" type="button" id="btnTeacher">
+          Teacher
+        </button>
+        <button class="btn-secondary" type="button" id="btnStudent">
+          Student
+        </button>
+      </div>
+
+      <p class="small-note" style="margin-top:14px;">
+        Teachers create classes. Students log in and their profile is created automatically.
+      </p>
+    </section>
+  `);
+
+  $("btnTeacher")?.addEventListener("click", () => {
+    setRoleIntent("teacher");
     goTo("teacherAuth");
+  });
+
+  $("btnStudent")?.addEventListener("click", () => {
+    setRoleIntent("student");
+    goTo("studentAuth");
+  });
+
+  highlightSidebar("landing");
+}
+
+function renderTeacherAuthScreen() {
+  const signedIn = !!authUser && activeRole === "teacher";
+
+  setAppHtml(`
+    <section class="screen" aria-labelledby="teacherAuthTitle">
+      <h2 id="teacherAuthTitle">Teacher login</h2>
+
+      ${
+        signedIn
+          ? `
+            <p>You are signed in as:</p>
+            <div class="summary-card" style="margin-top:10px;">
+              <div class="summary-row">
+                <span class="summary-label">Name:</span>
+                <span class="summary-value">${escapeHtml(authUser.displayName || "-")}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">Email:</span>
+                <span class="summary-value">${escapeHtml(authUser.email || "-")}</span>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
+              <button class="btn-primary" type="button" id="btnGoClasses">
+                Go to teacher classes
+              </button>
+              <button class="btn-secondary" type="button" id="btnSignOut">
+                Sign out
+              </button>
+            </div>
+          `
+          : `
+            <p>Sign in with your school email.</p>
+
+            <div class="summary-card" style="margin-top:14px;">
+              <h4 style="margin-top:0;">Google sign-in</h4>
+              <button class="btn-primary" type="button" id="btnGoogle">
+                Sign in with Google
+              </button>
+              <p class="small-note" style="margin-top:10px;">
+                If your district blocks popups, allow popups for this site.
+              </p>
+            </div>
+
+            <div class="summary-card" style="margin-top:14px;">
+              <h4 style="margin-top:0;">Email and password</h4>
+
+              <label for="teacherName">Name (for new accounts)</label>
+              <input id="teacherName" type="text" autocomplete="name" placeholder="Example: Ryan Keating" />
+
+              <label for="teacherEmail">Email</label>
+              <input id="teacherEmail" type="email" autocomplete="email" placeholder="Example: lastname_f@auhsd.us" />
+
+              <label for="teacherPassword">Password</label>
+              <input id="teacherPassword" type="password" autocomplete="current-password" placeholder="Password" />
+
+              <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
+                <button class="btn-primary" type="button" id="btnEmailSignIn">
+                  Sign in
+                </button>
+                <button class="btn-secondary" type="button" id="btnEmailCreate">
+                  Create account
+                </button>
+              </div>
+
+              <p id="teacherAuthError" style="color:#b00020; margin-top:10px;"></p>
+            </div>
+          `
+      }
+
+      <button class="btn-secondary" type="button" style="margin-top:16px;" id="btnBackLanding">
+        Back
+      </button>
+    </section>
+  `);
+
+  $("btnBackLanding")?.addEventListener("click", () => goTo("landing"));
+
+  if (signedIn) {
+    $("btnGoClasses")?.addEventListener("click", () => goTo("teacherClasses"));
+    $("btnSignOut")?.addEventListener("click", appSignOut);
+  } else {
+    $("btnGoogle")?.addEventListener("click", teacherSignInWithGoogle);
+    $("btnEmailSignIn")?.addEventListener("click", teacherSignInEmail);
+    $("btnEmailCreate")?.addEventListener("click", teacherCreateAccountEmail);
+  }
+}
+
+function renderTeacherClassesScreen() {
+  if (!authUser || activeRole !== "teacher") {
+    setAppHtml(`
+      <section class="screen" aria-labelledby="classesTitle">
+        <h2 id="classesTitle">Teacher classes</h2>
+        <p>You must sign in as a teacher first.</p>
+        <button class="btn-primary" type="button" id="btnGoLogin">Go to teacher login</button>
+      </section>
+    `);
+    $("btnGoLogin")?.addEventListener("click", () => goTo("teacherAuth"));
     return;
   }
 
-  await loadTeacherClasses();
-
-  const list = teacherClasses.length
+  const listHtml = teacherClasses.length
     ? teacherClasses
         .map(c => {
           const name = escapeHtml(c.name || "Untitled class");
           const year = escapeHtml(c.schoolYear || "");
+          const sub = year ? `<div class="small-note">School year: ${year}</div>` : "";
           return `
-            <div class="card">
-              <div class="card-title">${name}</div>
-              ${year ? `<div class="muted">School year: ${year}</div>` : ""}
-              <div class="row" style="margin-top:10px;">
-                <button class="btn-secondary" type="button" data-open-class="${c.id}">
-                  Open roster
-                </button>
+            <article class="summary-card" style="margin-bottom:12px;">
+              <h4 style="margin-top:0; margin-bottom:6px;">${name}</h4>
+              ${sub}
+              <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+                <button class="btn-secondary" type="button" data-rename="${c.id}">Rename</button>
+                <button class="btn-secondary" type="button" data-delete="${c.id}">Delete</button>
               </div>
-            </div>
+            </article>
           `;
         })
         .join("")
-    : `<div class="card"><div class="muted">No classes yet.</div></div>`;
+    : `<p class="small-note">No classes yet. Create one to get started.</p>`;
 
   setAppHtml(`
-    <section class="screen" aria-labelledby="tClassesTitle">
-      <h2 id="tClassesTitle">Teacher classes</h2>
-      <p>Create a class, then add students.</p>
+    <section class="screen" aria-labelledby="classesTitle">
+      <h2 id="classesTitle">Teacher classes</h2>
+      <p>Create and manage your classes.</p>
 
-      <div class="row">
-        <button class="btn-primary" type="button" id="btnCreateClass">
-          Create class
-        </button>
-        <button class="btn-secondary" type="button" id="btnSignOut">
-          Sign out
-        </button>
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
+        <button class="btn-primary" type="button" id="btnCreateClass">Create class</button>
+        <button class="btn-secondary" type="button" id="btnSignOut">Sign out</button>
       </div>
 
-      ${list}
+      <p id="classesError" style="color:#b00020; margin-top:10px;"></p>
 
-      <button class="btn-secondary" type="button" id="btnBack">
-        Back
-      </button>
+      <div style="margin-top:16px;">
+        ${listHtml}
+      </div>
     </section>
   `);
 
-  $("btnCreateClass")?.addEventListener("click", teacherCreateClass);
+  $("btnCreateClass")?.addEventListener("click", () => goTo("createClass"));
   $("btnSignOut")?.addEventListener("click", appSignOut);
-  $("btnBack")?.addEventListener("click", () => goTo("landing"));
 
-  document.querySelectorAll("[data-open-class]").forEach(btn => {
+  document.querySelectorAll("[data-rename]").forEach(btn => {
     btn.addEventListener("click", () => {
-      const classId = btn.getAttribute("data-open-class");
-      if (classId) teacherOpenClass(classId);
+      const id = btn.getAttribute("data-rename");
+      if (id) renameClass(id);
+    });
+  });
+
+  document.querySelectorAll("[data-delete]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-delete");
+      if (id) deleteClass(id);
     });
   });
 }
 
-async function renderTeacherRosterScreen() {
+function renderCreateClassScreen() {
   if (!authUser || activeRole !== "teacher") {
     goTo("teacherAuth");
     return;
   }
 
-  if (!selectedTeacherClassId) {
-    goTo("teacherClasses");
-    return;
-  }
+  setAppHtml(`
+    <section class="screen" aria-labelledby="createClassTitle">
+      <h2 id="createClassTitle">Create class</h2>
 
-  const roster = await teacherLoadRoster();
+      <label for="className">Class name</label>
+      <input id="className" type="text" placeholder="Example: Keating ATP" autocomplete="off" />
 
-  const rosterHtml = roster.length
-    ? roster
-        .map(s => {
-          const name = escapeHtml(s.name || "(No name)");
-          const email = escapeHtml(s.email || "");
-          const uid = escapeHtml(s.uid || "");
-          return `
-            <div class="card">
-              <div class="card-title">${name}</div>
-              ${email ? `<div class="muted">${email}</div>` : ""}
-              <div class="muted">UID: ${uid}</div>
+      <label for="schoolYear">School year</label>
+      <input id="schoolYear" type="text" placeholder="Example: 2025-2026" autocomplete="off" />
 
-              <div class="row" style="margin-top:10px;">
-                <button class="btn-secondary" type="button" data-view-student="${uid}" data-student-name="${name}">
-                  View trips
-                </button>
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
+        <button class="btn-primary" type="button" id="btnSaveClass">Create class</button>
+        <button class="btn-secondary" type="button" id="btnCancelClass">Cancel</button>
+      </div>
+
+      <p id="createClassError" style="color:#b00020; margin-top:10px;"></p>
+    </section>
+  `);
+
+  $("btnSaveClass")?.addEventListener("click", createClassFromForm);
+  $("btnCancelClass")?.addEventListener("click", () => goTo("teacherClasses"));
+}
+
+function renderStudentAuthScreen() {
+  const signedIn = !!authUser && activeRole === "student";
+
+  setAppHtml(`
+    <section class="screen" aria-labelledby="studentAuthTitle">
+      <h2 id="studentAuthTitle">Student login</h2>
+
+      ${
+        signedIn
+          ? `
+            <p>You are signed in as:</p>
+            <div class="summary-card" style="margin-top:10px;">
+              <div class="summary-row">
+                <span class="summary-label">Name:</span>
+                <span class="summary-value">${escapeHtml(authUser.displayName || "-")}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">Email:</span>
+                <span class="summary-value">${escapeHtml(authUser.email || "-")}</span>
               </div>
             </div>
-          `;
-        })
-        .join("")
-    : `<div class="card"><div class="muted">No students yet.</div></div>`;
 
-  setAppHtml(`
-    <section class="screen" aria-labelledby="tRosterTitle">
-      <h2 id="tRosterTitle">Class roster</h2>
-      <p>Add students by UID so they auto-land in this class after login.</p>
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
+              <button class="btn-primary" type="button" id="btnGoStudentHome">Go to student home</button>
+              <button class="btn-secondary" type="button" id="btnSignOut">Sign out</button>
+            </div>
+          `
+          : `
+            <p>Sign in with your school email.</p>
 
-      <div class="row">
-        <button class="btn-primary" type="button" id="btnAddStudentUid">
-          Add student by UID
-        </button>
+            <div class="summary-card" style="margin-top:14px;">
+              <h4 style="margin-top:0;">Google sign-in</h4>
+              <button class="btn-primary" type="button" id="btnStudentGoogle">
+                Sign in with Google
+              </button>
+              <p class="small-note" style="margin-top:10px;">
+                If a popup is blocked, allow popups for this site and try again.
+              </p>
+            </div>
 
-        <button class="btn-secondary" type="button" id="btnBackClasses">
-          Back to classes
-        </button>
-      </div>
+            <div class="summary-card" style="margin-top:14px;">
+              <h4 style="margin-top:0;">Email and password</h4>
 
-      ${rosterHtml}
-    </section>
-  `);
+              <label for="studentName">Name (for new accounts)</label>
+              <input id="studentName" type="text" autocomplete="name" placeholder="Your name" />
 
-  $("btnAddStudentUid")?.addEventListener("click", () => goTo("teacherAddStudentUid"));
-  $("btnBackClasses")?.addEventListener("click", () => goTo("teacherClasses"));
+              <label for="studentEmail">Email</label>
+              <input id="studentEmail" type="email" autocomplete="email" placeholder="Example: 123456@student.auhsd.us" />
 
-  document.querySelectorAll("[data-view-student]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const uid = btn.getAttribute("data-view-student");
-      const nm = btn.getAttribute("data-student-name") || "";
-      if (uid) teacherViewStudentTrips(uid, nm);
-    });
-  });
-}
+              <label for="studentPassword">Password</label>
+              <input id="studentPassword" type="password" autocomplete="current-password" placeholder="Password" />
 
-function renderTeacherAddStudentUidScreen() {
-  if (!authUser || activeRole !== "teacher") {
-    goTo("teacherAuth");
-    return;
-  }
+              <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
+                <button class="btn-primary" type="button" id="btnStudentEmailSignIn">Sign in</button>
+                <button class="btn-secondary" type="button" id="btnStudentEmailCreate">Create account</button>
+              </div>
 
-  setAppHtml(`
-    <section class="screen" aria-labelledby="addUidTitle">
-      <h2 id="addUidTitle">Add student by UID</h2>
+              <p id="studentAuthError" style="color:#b00020; margin-top:10px;"></p>
+            </div>
+          `
+      }
 
-      <div class="card">
-        <div class="card-title">How to get the UID</div>
-        <p class="muted">
-          Have the student sign in one time on a Chromebook using Student login.
-          Then the student will see their UID on Student home. Copy it here.
-        </p>
-      </div>
-
-      <label for="uidInput">Student UID</label>
-      <input id="uidInput" type="text" placeholder="Paste UID" autocomplete="off" />
-
-      <label for="nameInput">Student name</label>
-      <input id="nameInput" type="text" placeholder="Example: John S." autocomplete="off" />
-
-      <label for="emailInput">Student email</label>
-      <input id="emailInput" type="text" placeholder="Example: 123456@student.auhsd.us" autocomplete="off" />
-
-      <button class="btn-primary" type="button" id="btnSaveStudent">
-        Add student
-      </button>
-
-      <button class="btn-secondary" type="button" id="btnBack">
+      <button class="btn-secondary" type="button" style="margin-top:16px;" id="btnBackLanding">
         Back
       </button>
-
-      <div id="addUidError" class="error"></div>
     </section>
   `);
 
-  $("btnSaveStudent")?.addEventListener("click", async () => {
-    const uid = ($("uidInput")?.value || "").trim();
-    const name = ($("nameInput")?.value || "").trim();
-    const email = ($("emailInput")?.value || "").trim();
+  $("btnBackLanding")?.addEventListener("click", () => goTo("landing"));
 
-    if (!uid) {
-      $("addUidError").textContent = "UID is required.";
-      return;
-    }
-
-    $("addUidError").textContent = "";
-
-    try {
-      await teacherAddStudentByUid(uid, name, email);
-    } catch (err) {
-      console.error(err);
-      $("addUidError").textContent = err?.message || "Could not add student.";
-    }
-  });
-
-  $("btnBack")?.addEventListener("click", () => goTo("teacherRoster"));
+  if (signedIn) {
+    $("btnGoStudentHome")?.addEventListener("click", () => goTo("studentHome"));
+    $("btnSignOut")?.addEventListener("click", appSignOut);
+  } else {
+    $("btnStudentGoogle")?.addEventListener("click", studentSignInWithGoogle);
+    $("btnStudentEmailSignIn")?.addEventListener("click", studentSignInEmail);
+    $("btnStudentEmailCreate")?.addEventListener("click", studentCreateAccountEmail);
+  }
 }
 
-async function renderTeacherStudentTripsScreen() {
-  if (!authUser || activeRole !== "teacher") {
-    goTo("teacherAuth");
-    return;
-  }
-
-  if (!selectedStudentUidForTeacher) {
-    goTo("teacherRoster");
-    return;
-  }
-
-  const trips = await teacherLoadStudentTrips(selectedStudentUidForTeacher);
-
-  const tripsHtml = trips.length
-    ? trips
-        .map(t => {
-          const trip = t.trip || {};
-          const dest = escapeHtml(trip.destinationName || "-");
-          const date = escapeHtml(trip.tripDate || "-");
-          return `
-            <div class="card">
-              <div class="card-title">${dest}</div>
-              <div class="muted">Date: ${date}</div>
-            </div>
-          `;
-        })
-        .join("")
-    : `<div class="card"><div class="muted">No saved trips yet.</div></div>`;
-
-  setAppHtml(`
-    <section class="screen" aria-labelledby="tTripsTitle">
-      <h2 id="tTripsTitle">Student trips</h2>
-      <p>Student: ${escapeHtml(selectedStudentNameForTeacher || "")}</p>
-
-      ${tripsHtml}
-
-      <button class="btn-secondary" type="button" id="btnBack">
-        Back to roster
-      </button>
-    </section>
-  `);
-
-  $("btnBack")?.addEventListener("click", () => goTo("teacherRoster"));
-}
-
-/* =========================================================
-   STUDENT RENDERS
-   ========================================================= */
-
-async function renderStudentHomeScreen() {
+function renderStudentHomeScreen() {
   if (!authUser || activeRole !== "student") {
-    goTo("studentAuth");
-    return;
-  }
-
-  // Load enrollment
-  studentEnrollment = await loadStudentEnrollment(authUser.uid);
-
-  if (!studentEnrollment) {
     setAppHtml(`
-      <section class="screen" aria-labelledby="sHomeTitle">
-        <h2 id="sHomeTitle">Student home</h2>
-
-        <div class="card">
-          <div class="card-title">Not enrolled yet</div>
-          <p class="muted">
-            Ask your teacher to add you to a class using your UID.
-          </p>
-          <p class="muted">
-            Your UID is:
-          </p>
-          <div class="card" style="margin-top:10px;">
-            <div class="card-title">${escapeHtml(authUser.uid)}</div>
-          </div>
-        </div>
-
-        <button class="btn-secondary" type="button" id="btnSignOut">
-          Sign out
-        </button>
+      <section class="screen" aria-labelledby="studentHomeTitle">
+        <h2 id="studentHomeTitle">Student home</h2>
+        <p>You must sign in as a student first.</p>
+        <button class="btn-primary" type="button" id="btnGoStudentLogin">Go to student login</button>
       </section>
     `);
-
-    $("btnSignOut")?.addEventListener("click", appSignOut);
+    $("btnGoStudentLogin")?.addEventListener("click", () => goTo("studentAuth"));
     return;
   }
 
-  setAppHtml(`
-    <section class="screen" aria-labelledby="sHomeTitle">
-      <h2 id="sHomeTitle">Student home</h2>
+  const status = studentProfile?.status || "pending";
+  const classId = studentProfile?.classId || null;
 
-      <div class="card">
-        <div class="card-title">Your class</div>
+  const assignmentMessage =
+    status === "active" && classId
+      ? `<p class="small-note">You are assigned to a class. You are ready to start trips.</p>`
+      : `<p class="small-note">
+           Your profile is created. Next, your teacher will assign you to a class.
+         </p>`;
+
+  setAppHtml(`
+    <section class="screen" aria-labelledby="studentHomeTitle">
+      <h2 id="studentHomeTitle">Student home</h2>
+
+      <div class="summary-card" style="margin-top:10px;">
         <div class="summary-row">
-          <span class="summary-label">Class</span>
-          <span class="summary-value">${escapeHtml(studentEnrollment.className || "-")}</span>
+          <span class="summary-label">Name:</span>
+          <span class="summary-value">${escapeHtml(authUser.displayName || "-")}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Email:</span>
+          <span class="summary-value">${escapeHtml(authUser.email || "-")}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Status:</span>
+          <span class="summary-value">${escapeHtml(status)}</span>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Your UID</div>
-        <p class="muted">If your teacher needs it, copy this:</p>
-        <div class="card" style="margin-top:10px;">
-          <div class="card-title">${escapeHtml(authUser.uid)}</div>
-        </div>
+      <div style="margin-top:14px;">
+        ${assignmentMessage}
       </div>
 
-      <div class="row" style="margin-top:10px;">
-        <button class="btn-primary" type="button" id="btnStartTrip">
-          Start a new trip
-        </button>
-        <button class="btn-secondary" type="button" id="btnPast">
-          Past trips
-        </button>
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
+        <button class="btn-secondary" type="button" id="btnSignOut">Sign out</button>
       </div>
-
-      <button class="btn-secondary" type="button" id="btnSignOut">
-        Sign out
-      </button>
     </section>
   `);
 
-  $("btnStartTrip")?.addEventListener("click", () => goTo("planDestination"));
-  $("btnPast")?.addEventListener("click", () => goTo("studentPastTrips"));
   $("btnSignOut")?.addEventListener("click", appSignOut);
-}
-
-function renderStudentStep1() {
-  if (!authUser || activeRole !== "student") {
-    goTo("studentAuth");
-    return;
-  }
-
-  setAppHtml(`
-    <section class="screen" aria-labelledby="step1Title">
-      <h2 id="step1Title">Step 1 - Basic info</h2>
-      <p>Type the basic information for your trip.</p>
-
-      <label for="destName">Destination name</label>
-      <input id="destName" type="text" value="${escapeHtml(currentTrip.destinationName)}" placeholder="Example: Target" />
-
-      <label for="destAddress">Destination address</label>
-      <input id="destAddress" type="text" value="${escapeHtml(currentTrip.destinationAddress)}" placeholder="Street, city" />
-
-      <label for="tripDate">Date of trip</label>
-      <input id="tripDate" type="date" value="${escapeHtml(currentTrip.tripDate)}" />
-
-      <label for="meetTime">Meet time</label>
-      <input id="meetTime" type="time" value="${escapeHtml(currentTrip.meetTime)}" />
-
-      <button class="btn-primary" type="button" id="btnNext">
-        Go to Step 2
-      </button>
-
-      <button class="btn-secondary" type="button" id="btnBack">
-        Back
-      </button>
-    </section>
-  `);
-
-  $("btnNext")?.addEventListener("click", () => {
-    currentTrip.destinationName = ($("destName")?.value || "").trim();
-    currentTrip.destinationAddress = ($("destAddress")?.value || "").trim();
-    currentTrip.tripDate = ($("tripDate")?.value || "").trim();
-    currentTrip.meetTime = ($("meetTime")?.value || "").trim();
-    goTo("mapsInstructions");
-  });
-
-  $("btnBack")?.addEventListener("click", () => goTo("studentHome"));
-}
-
-function renderStudentStep2() {
-  if (!authUser || activeRole !== "student") {
-    goTo("studentAuth");
-    return;
-  }
-
-  setAppHtml(`
-    <section class="screen" aria-labelledby="step2Title">
-      <h2 id="step2Title">Step 2 - Google Maps</h2>
-      <p>Use Google Maps to find a transit route. Then come back and type the details yourself.</p>
-
-      <ol class="step-list">
-        <li>Open Google Maps using the button below.</li>
-        <li>Check that your destination is correct.</li>
-        <li>Select Transit.</li>
-        <li>Choose a route that you can follow.</li>
-        <li>Write down the bus number, stops, and times.</li>
-        <li>Return here and type the route details in Step 3.</li>
-      </ol>
-
-      <button class="btn-primary" type="button" id="btnOpenMaps">
-        Open Google Maps (Transit)
-      </button>
-
-      <button class="btn-primary" type="button" id="btnNext">
-        Go to Step 3 and 4
-      </button>
-
-      <button class="btn-secondary" type="button" id="btnBack">
-        Back
-      </button>
-    </section>
-  `);
-
-  $("btnOpenMaps")?.addEventListener("click", openMapsForCurrentTrip);
-  $("btnNext")?.addEventListener("click", () => goTo("routeDetails"));
-  $("btnBack")?.addEventListener("click", () => goTo("planDestination"));
-}
-
-function renderStudentStep3and4and5() {
-  if (!authUser || activeRole !== "student") {
-    goTo("studentAuth");
-    return;
-  }
-
-  const r = currentTrip.routeThere;
-  const rb = currentTrip.routeBack;
-  const p = currentTrip.purpose;
-  const pack = currentTrip.packing;
-
-  setAppHtml(`
-    <section class="screen" aria-labelledby="step3Title">
-      <h2 id="step3Title">Step 3 - Route details</h2>
-      <p>Type what you found in Google Maps.</p>
-
-      <div class="card">
-        <div class="card-title">Route there</div>
-
-        <label>Bus number</label>
-        <input id="rt_bus" type="text" value="${escapeHtml(r.busNumber)}" placeholder="Example: 47" />
-
-        <label>Direction</label>
-        <input id="rt_dir" type="text" value="${escapeHtml(r.direction)}" placeholder="Example: To Anaheim" />
-
-        <label>Get on stop</label>
-        <input id="rt_on" type="text" value="${escapeHtml(r.boardStop)}" />
-
-        <label>Get off stop</label>
-        <input id="rt_off" type="text" value="${escapeHtml(r.exitStop)}" />
-
-        <label>Depart time</label>
-        <input id="rt_dep" type="text" value="${escapeHtml(r.departTime)}" placeholder="Example: 8:48 AM" />
-
-        <label>Arrive time</label>
-        <input id="rt_arr" type="text" value="${escapeHtml(r.arriveTime)}" placeholder="Example: 9:12 AM" />
-
-        <label>Total travel time</label>
-        <input id="rt_total" type="text" value="${escapeHtml(r.totalTime)}" placeholder="Example: 24 minutes" />
-      </div>
-
-      <div class="card">
-        <div class="card-title">Route back</div>
-
-        <label>Bus number</label>
-        <input id="rb_bus" type="text" value="${escapeHtml(rb.busNumber)}" />
-
-        <label>Direction</label>
-        <input id="rb_dir" type="text" value="${escapeHtml(rb.direction)}" />
-
-        <label>Get on stop</label>
-        <input id="rb_on" type="text" value="${escapeHtml(rb.boardStop)}" />
-
-        <label>Get off stop</label>
-        <input id="rb_off" type="text" value="${escapeHtml(rb.exitStop)}" />
-
-        <label>Depart time</label>
-        <input id="rb_dep" type="text" value="${escapeHtml(rb.departTime)}" />
-
-        <label>Arrive time</label>
-        <input id="rb_arr" type="text" value="${escapeHtml(rb.arriveTime)}" />
-
-        <label>Total travel time</label>
-        <input id="rb_total" type="text" value="${escapeHtml(rb.totalTime)}" />
-      </div>
-
-      <div class="card">
-        <div class="card-title">Step 4 - Why are we going?</div>
-
-        <div class="purpose-grid">
-          <label class="purpose-item"><input id="p_life" type="checkbox" ${p.lifeSkills ? "checked" : ""} /> Life skills</label>
-          <label class="purpose-item"><input id="p_comm" type="checkbox" ${p.communityAccess ? "checked" : ""} /> Community access</label>
-          <label class="purpose-item"><input id="p_money" type="checkbox" ${p.moneySkills ? "checked" : ""} /> Money skills</label>
-          <label class="purpose-item"><input id="p_talk" type="checkbox" ${p.communication ? "checked" : ""} /> Communication</label>
-          <label class="purpose-item"><input id="p_social" type="checkbox" ${p.socialSkills ? "checked" : ""} /> Social skills</label>
-          <label class="purpose-item"><input id="p_job" type="checkbox" ${p.employmentPrep ? "checked" : ""} /> Employment prep</label>
-          <label class="purpose-item"><input id="p_rec" type="checkbox" ${p.recreationLeisure ? "checked" : ""} /> Recreation and leisure</label>
-          <label class="purpose-item"><input id="p_safe" type="checkbox" ${p.safetySkills ? "checked" : ""} /> Safety skills</label>
-        </div>
-
-        <label>Other</label>
-        <input id="p_other" type="text" value="${escapeHtml(p.otherText)}" placeholder="Write your own reason" />
-      </div>
-
-      <div class="card">
-        <div class="card-title">Step 5 - Safety, money, packing</div>
-
-        <label>How much money do you need?</label>
-        <input id="pack_money" type="text" value="${escapeHtml(pack.moneyNeeded)}" placeholder="Example: $10 for snack" />
-
-        <label>What safety rules will you remember?</label>
-        <textarea id="pack_safety" placeholder="Example: stay with group, cross at crosswalk">${escapeHtml(pack.safetyRules)}</textarea>
-
-        <label>What will you bring?</label>
-        <textarea id="pack_bring" placeholder="Example: water, jacket, bus pass">${escapeHtml(pack.whatToBring)}</textarea>
-      </div>
-
-      <button class="btn-primary" type="button" id="btnNext">
-        View trip summary
-      </button>
-
-      <button class="btn-secondary" type="button" id="btnBack">
-        Back
-      </button>
-    </section>
-  `);
-
-  $("btnNext")?.addEventListener("click", () => {
-    // Route there
-    r.busNumber = ($("rt_bus")?.value || "").trim();
-    r.direction = ($("rt_dir")?.value || "").trim();
-    r.boardStop = ($("rt_on")?.value || "").trim();
-    r.exitStop = ($("rt_off")?.value || "").trim();
-    r.departTime = ($("rt_dep")?.value || "").trim();
-    r.arriveTime = ($("rt_arr")?.value || "").trim();
-    r.totalTime = ($("rt_total")?.value || "").trim();
-
-    // Route back
-    rb.busNumber = ($("rb_bus")?.value || "").trim();
-    rb.direction = ($("rb_dir")?.value || "").trim();
-    rb.boardStop = ($("rb_on")?.value || "").trim();
-    rb.exitStop = ($("rb_off")?.value || "").trim();
-    rb.departTime = ($("rb_dep")?.value || "").trim();
-    rb.arriveTime = ($("rb_arr")?.value || "").trim();
-    rb.totalTime = ($("rb_total")?.value || "").trim();
-
-    // Purpose
-    p.lifeSkills = !!$("p_life")?.checked;
-    p.communityAccess = !!$("p_comm")?.checked;
-    p.moneySkills = !!$("p_money")?.checked;
-    p.communication = !!$("p_talk")?.checked;
-    p.socialSkills = !!$("p_social")?.checked;
-    p.employmentPrep = !!$("p_job")?.checked;
-    p.recreationLeisure = !!$("p_rec")?.checked;
-    p.safetySkills = !!$("p_safe")?.checked;
-    p.otherText = ($("p_other")?.value || "").trim();
-
-    // Packing
-    pack.moneyNeeded = ($("pack_money")?.value || "").trim();
-    pack.safetyRules = ($("pack_safety")?.value || "").trim();
-    pack.whatToBring = ($("pack_bring")?.value || "").trim();
-
-    goTo("summary");
-  });
-
-  $("btnBack")?.addEventListener("click", () => goTo("mapsInstructions"));
-}
-
-function renderStudentSummary() {
-  if (!authUser || activeRole !== "student") {
-    goTo("studentAuth");
-    return;
-  }
-
-  const pHtml = purposeSummaryListHtml();
-
-  setAppHtml(`
-    <section class="screen" aria-labelledby="sumTitle">
-      <h2 id="sumTitle">Trip summary</h2>
-      <p>Review your plan. You did the thinking work. Save it when you are ready.</p>
-
-      <div class="summary-grid">
-        <div class="card">
-          <div class="card-title">Trip basics</div>
-          <div class="summary-row"><span class="summary-label">Destination</span><span class="summary-value">${escapeHtml(currentTrip.destinationName || "-")}</span></div>
-          <div class="summary-row"><span class="summary-label">Address</span><span class="summary-value">${escapeHtml(currentTrip.destinationAddress || "-")}</span></div>
-          <div class="summary-row"><span class="summary-label">Date</span><span class="summary-value">${escapeHtml(currentTrip.tripDate || "-")}</span></div>
-          <div class="summary-row"><span class="summary-label">Meet time</span><span class="summary-value">${escapeHtml(currentTrip.meetTime || "-")}</span></div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Purpose</div>
-          <ul style="margin-left:18px; color:#244b55;">
-            ${pHtml}
-          </ul>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Packing plan</div>
-          <div class="summary-row"><span class="summary-label">Money needed</span><span class="summary-value">${escapeHtml(currentTrip.packing.moneyNeeded || "-")}</span></div>
-          <div class="summary-row"><span class="summary-label">Safety rules</span><span class="summary-value">${escapeHtml((currentTrip.packing.safetyRules || "-").slice(0, 60))}</span></div>
-          <div class="summary-row"><span class="summary-label">What to bring</span><span class="summary-value">${escapeHtml((currentTrip.packing.whatToBring || "-").slice(0, 60))}</span></div>
-        </div>
-      </div>
-
-      <button class="btn-primary" type="button" id="btnSave">
-        Save trip
-      </button>
-
-      <button class="btn-secondary" type="button" id="btnEdit">
-        Edit steps
-      </button>
-
-      <button class="btn-secondary" type="button" id="btnPast">
-        Past trips
-      </button>
-    </section>
-  `);
-
-  $("btnSave")?.addEventListener("click", studentSaveTrip);
-  $("btnEdit")?.addEventListener("click", () => goTo("planDestination"));
-  $("btnPast")?.addEventListener("click", () => goTo("studentPastTrips"));
-}
-
-async function renderStudentPastTrips() {
-  if (!authUser || activeRole !== "student") {
-    goTo("studentAuth");
-    return;
-  }
-
-  studentEnrollment = await loadStudentEnrollment(authUser.uid);
-
-  if (!studentEnrollment) {
-    goTo("studentHome");
-    return;
-  }
-
-  const trips = await studentLoadPastTrips();
-
-  const tripsHtml = trips.length
-    ? trips
-        .map(t => {
-          const trip = t.trip || {};
-          const dest = escapeHtml(trip.destinationName || "-");
-          const date = escapeHtml(trip.tripDate || "-");
-          return `
-            <div class="card">
-              <div class="card-title">${dest}</div>
-              <div class="muted">Date: ${date}</div>
-            </div>
-          `;
-        })
-        .join("")
-    : `<div class="card"><div class="muted">No trips saved yet.</div></div>`;
-
-  setAppHtml(`
-    <section class="screen" aria-labelledby="pastTitle">
-      <h2 id="pastTitle">Past trips</h2>
-      <p>Your saved trip plans show here.</p>
-
-      ${tripsHtml}
-
-      <button class="btn-primary" type="button" id="btnNew">
-        Start a new trip
-      </button>
-
-      <button class="btn-secondary" type="button" id="btnBack">
-        Back
-      </button>
-    </section>
-  `);
-
-  $("btnNew")?.addEventListener("click", () => goTo("planDestination"));
-  $("btnBack")?.addEventListener("click", () => goTo("studentHome"));
 }
 
 /* =========================================================
    SIDEBAR WIRING
-   Keep it safe based on role
    ========================================================= */
 
 function wireSidebar() {
-  document.querySelectorAll(".sidebar-item").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const target = btn.getAttribute("data-screen");
-      if (!target) return;
+  const sidebarItems = document.querySelectorAll(".sidebar-item");
+
+  sidebarItems.forEach(item => {
+    const screen = item.getAttribute("data-screen");
+
+    item.addEventListener("click", () => {
+      if (!screen) return;
 
       // Teacher screens
-      if (target.startsWith("teacher")) {
+      if (screen === "teacherClasses" || screen === "createClass") {
         if (!authUser || activeRole !== "teacher") {
+          setRoleIntent("teacher");
           goTo("teacherAuth");
           return;
         }
       }
 
       // Student screens
-      if (
-        target === "studentHome" ||
-        target === "planDestination" ||
-        target === "mapsInstructions" ||
-        target === "routeDetails" ||
-        target === "summary" ||
-        target === "studentPastTrips"
-      ) {
+      if (screen === "studentHome") {
         if (!authUser || activeRole !== "student") {
+          setRoleIntent("student");
           goTo("studentAuth");
           return;
         }
       }
 
-      goTo(target);
+      goTo(screen);
+    });
+
+    item.addEventListener("mousemove", event => {
+      const rect = item.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      item.style.setProperty("--x", `${x}px`);
+      item.style.setProperty("--y", `${y}px`);
     });
   });
 }
 
 /* =========================================================
    AUTH STATE LISTENER
-   Decide where to send user after login
    ========================================================= */
 
 onAuthStateChanged(auth, async user => {
   authUser = user || null;
 
-  // Not signed in
   if (!authUser) {
+    cleanupTeacherRealtime();
+    studentProfile = null;
+    activeRole = "none";
+
+    // If user logs out while in protected screens
+    if (currentScreen === "teacherClasses" || currentScreen === "createClass") goTo("landing");
+    if (currentScreen === "studentHome") goTo("landing");
+
     render();
-    highlightSidebar();
     return;
   }
 
   // Signed in
-  if (activeRole === "teacher") {
-    try {
+  const intended = getRoleIntent();
+
+  try {
+    if (intended === "teacher") {
+      activeRole = "teacher";
+      studentProfile = null;
+
       await ensureTeacherProfile(authUser);
-      goTo("teacherClasses");
-      return;
-    } catch (err) {
-      console.error(err);
-      goTo("teacherAuth");
-      return;
+      startTeacherClassesRealtime(authUser.uid);
+
+      if (currentScreen === "landing" || currentScreen === "teacherAuth") {
+        goTo("teacherClasses");
+        return;
+      }
+    } else {
+      activeRole = "student";
+      cleanupTeacherRealtime();
+
+      studentProfile = await ensureStudentProfile(authUser);
+
+      if (currentScreen === "landing" || currentScreen === "studentAuth") {
+        goTo("studentHome");
+        return;
+      }
     }
+  } catch (err) {
+    console.error(err);
+    // Safe fallback
+    activeRole = "none";
+    studentProfile = null;
+    cleanupTeacherRealtime();
+    goTo("landing");
+    return;
   }
 
-  if (activeRole === "student") {
-    try {
-      studentEnrollment = await loadStudentEnrollment(authUser.uid);
-      goTo("studentHome");
-      return;
-    } catch (err) {
-      console.error(err);
-      goTo("studentAuth");
-      return;
-    }
-  }
-
-  // If role is unknown, send to landing
-  goTo("landing");
+  render();
 });
 
 /* =========================================================
-   INITIALIZE
+   INITIALIZE APP
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", () => {
-  wireSidebar();
   render();
-  highlightSidebar();
+  wireSidebar();
+  highlightSidebar("landing");
 });
