@@ -77,7 +77,9 @@ body {
 
 /* Logo image itself (Ensure the PNG file is transparent) */
 .sidebar-logo {
-    max-width: 200px; 
+    /* *** MODIFIED FOR WIDER LOGO *** */
+    max-width: 85%; /* Changed from 200px to 85% to be almost as wide as the 260px sidebar */
+    
     max-height: 40px; 
     width: 100%;
     height: auto;
