@@ -1,276 +1,259 @@
-/* =========================================================
-   ROOT VARIABLES
-   ========================================================= */
-
-:root {
+:root{
   --color-dark-bg: #1C363C;
-  --color-dark-bg-2: #23444b;
   --color-accent: #1AA489;
-
   --color-light-bg: #F8F8F8;
-  --color-card-bg: #FFFFFF;
 
-  --color-text-light: #FFFFFF;
-  --color-text-dark: #333333;
-  --color-muted: #7a8a8f;
+  --text-light: #FFFFFF;
+  --text-dark: #1f2a2e;
 
-  --radius: 10px;
-  --transition: 0.2s ease-in-out;
+  --font-cbi: "Oswald", sans-serif;
+  --font-planner: "Poppins", sans-serif;
+
+  --radius: 14px;
 }
 
-/* =========================================================
-   GLOBAL RESET
-   ========================================================= */
+*{ box-sizing: border-box; }
 
-* {
-  box-sizing: border-box;
-}
-
-html, body {
-  margin: 0;
-  padding: 0;
+html, body{
   height: 100%;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background-color: var(--color-light-bg);
-  color: var(--color-text-dark);
 }
 
-/* =========================================================
-   APP LAYOUT
-   ========================================================= */
+body{
+  margin: 0;
+  font-family: var(--font-planner);
+  background: #0f2c31;
+  color: var(--text-dark);
+}
 
-.app-shell {
+/* Layout */
+.app-shell{
   display: flex;
   min-height: 100vh;
 }
 
-/* =========================================================
-   SIDEBAR
-   ========================================================= */
-
-.sidebar {
-  width: 260px;
-  background-color: var(--color-dark-bg);
-  color: var(--color-text-light);
+/* Sidebar */
+.sidebar{
+  width: 280px;
+  background: var(--color-dark-bg);
+  color: var(--text-light);
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
 }
 
-/* =========================================================
-   SIDEBAR LOGO
-   ========================================================= */
-
-.sidebar-header {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 18px 12px;
-}
-
-.sidebar-logo {
-  width: 85%;
-  height: auto;
-  display: block;
-  object-fit: contain;
+/* Brand header */
+.sidebar-header{
+  padding: 16px 14px 12px;
   background: transparent;
 }
 
-/* =========================================================
-   SIDEBAR NAV
-   ========================================================= */
-
-.sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  padding: 6px 0;
-}
-
-.sidebar-item {
+/* This controls overall brand block width */
+.brand{
+  width: 85%;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 18px;
-  background: none;
-  border: none;
-  color: var(--color-text-light);
-  cursor: pointer;
-  text-align: left;
-  font-size: 15px;
-  transition: background-color var(--transition);
+  padding: 10px 10px;
+  border-radius: 12px;
+  background: transparent;
 }
 
-.sidebar-item i {
-  width: 20px;
-  text-align: center;
+/* Icon sizing */
+.brand-icon{
+  width: 52px;
+  height: 52px;
+  display: block;
+  object-fit: contain;
 }
 
-.sidebar-item:hover {
-  background-color: var(--color-dark-bg-2);
+/* Typography */
+.brand-text{
+  display: flex;
+  flex-direction: column;
+  line-height: 1.0;
 }
 
-.sidebar-item.active {
-  background-color: var(--color-accent);
-  color: #ffffff;
+.brand-cbi{
+  font-family: var(--font-cbi);
+  font-weight: 800;
+  font-size: 28px;
+  letter-spacing: -0.5px;
+  color: #FFFFFF;
+  margin: 0;
+  padding: 0;
 }
 
-.sidebar-divider {
+.brand-sub{
+  font-family: var(--font-planner);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 2.6px;
+  text-transform: uppercase;
+  color: #FFFFFF;
+  opacity: 0.95;
+  margin-top: 2px;
+}
+
+/* Nav */
+.sidebar-nav{
+  padding: 6px 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-divider{
   height: 1px;
-  background-color: rgba(255,255,255,0.15);
-  margin: 10px 0;
+  background: rgba(255,255,255,0.12);
+  margin: 6px 6px;
 }
 
-/* =========================================================
-   MAIN CONTENT
-   ========================================================= */
-
-.main {
-  flex-grow: 1;
-  padding: 28px;
-  background-color: var(--color-light-bg);
+.sidebar-item{
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text-light);
+  text-align: left;
+  padding: 12px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--font-planner);
 }
 
-.app-root {
-  max-width: 1100px;
+.sidebar-item i{
+  width: 22px;
+  text-align: center;
+  opacity: 0.95;
+}
+
+.sidebar-item:hover{
+  background: rgba(255,255,255,0.08);
+}
+
+.sidebar-item.active,
+.sidebar-item[aria-current="page"]{
+  background: var(--color-accent);
+  color: #FFFFFF;
+}
+
+/* Main content */
+.main{
+  flex: 1;
+  background: #0f7f8a;
+  padding: 22px;
+}
+
+.app-root{
+  max-width: 980px;
   margin: 0 auto;
 }
 
-/* =========================================================
-   SCREENS
-   ========================================================= */
-
-.screen h2 {
-  margin-top: 0;
-  font-size: 28px;
+/* Generic UI helpers (used by your JS screens) */
+.screen{
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: var(--radius);
+  padding: 18px;
+  color: #062a2f;
 }
 
-.small-note {
-  font-size: 14px;
-  color: var(--color-muted);
+.screen h2{
+  margin: 0 0 10px;
+  font-size: 40px;
+  letter-spacing: -0.5px;
+  color: rgba(0,0,0,0.60);
 }
 
-/* =========================================================
-   FORMS
-   ========================================================= */
-
-label {
+label{
   display: block;
-  margin-top: 14px;
-  font-weight: 600;
+  margin: 12px 0 6px;
+  font-weight: 700;
+  color: rgba(0,0,0,0.65);
 }
 
-input {
+input{
   width: 100%;
-  padding: 10px 12px;
-  margin-top: 6px;
-  border-radius: var(--radius);
-  border: 1px solid #ccc;
-  font-size: 15px;
-}
-
-input:focus {
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.12);
   outline: none;
-  border-color: var(--color-accent);
+  font-size: 16px;
+  font-family: var(--font-planner);
+  background: rgba(255,255,255,0.90);
 }
 
-/* =========================================================
-   BUTTONS
-   ========================================================= */
-
-button {
-  font-family: inherit;
-}
-
-.btn-primary {
-  background-color: var(--color-accent);
-  color: #ffffff;
-  border: none;
+.summary-card{
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.18);
   border-radius: var(--radius);
-  padding: 10px 16px;
-  font-size: 15px;
-  cursor: pointer;
-  transition: background-color var(--transition);
+  padding: 14px;
+  color: #062a2f;
 }
 
-.btn-primary:hover {
-  background-color: #148d76;
-}
-
-.btn-secondary {
-  background-color: transparent;
-  color: var(--color-accent);
-  border: 2px solid var(--color-accent);
-  border-radius: var(--radius);
-  padding: 8px 14px;
-  font-size: 15px;
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.btn-secondary:hover {
-  background-color: var(--color-accent);
-  color: #ffffff;
-}
-
-/* =========================================================
-   CARDS
-   ========================================================= */
-
-.summary-card {
-  background-color: var(--color-card-bg);
-  border-radius: var(--radius);
-  padding: 16px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-}
-
-.summary-row {
+.summary-row{
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 6px;
+  gap: 10px;
+  padding: 6px 0;
 }
 
-.summary-label {
+.summary-label{
+  min-width: 92px;
+  font-weight: 800;
+  color: rgba(0,0,0,0.55);
+}
+
+.summary-value{
   font-weight: 600;
+  color: rgba(0,0,0,0.70);
 }
 
-.summary-value {
-  color: var(--color-muted);
+.small-note{
+  color: rgba(0,0,0,0.60);
+  font-weight: 500;
 }
 
-/* =========================================================
-   RESPONSIVE
-   ========================================================= */
-
-@media (max-width: 900px) {
-  .sidebar {
-    width: 220px;
-  }
-
-  .main {
-    padding: 20px;
-  }
+/* Buttons */
+.btn-primary,
+.btn-secondary{
+  padding: 11px 16px;
+  border-radius: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid transparent;
+  font-family: var(--font-planner);
 }
 
-@media (max-width: 700px) {
-  .app-shell {
-    flex-direction: column;
-  }
+.btn-primary{
+  background: var(--color-accent);
+  color: #FFFFFF;
+  border-color: rgba(0,0,0,0.06);
+}
 
-  .sidebar {
-    width: 100%;
-    flex-direction: row;
-    overflow-x: auto;
-  }
+.btn-primary:hover{
+  filter: brightness(1.03);
+}
 
-  .sidebar-nav {
-    flex-direction: row;
-  }
+.btn-secondary{
+  background: rgba(255,255,255,0.85);
+  color: #0e2b30;
+  border-color: rgba(0,0,0,0.10);
+}
 
-  .sidebar-item {
-    justify-content: center;
-  }
+.btn-secondary:hover{
+  background: rgba(255,255,255,0.95);
+}
 
-  .main {
-    padding: 16px;
-  }
+/* Mobile */
+@media (max-width: 820px){
+  .sidebar{ width: 250px; }
+  .brand{ width: 92%; }
+  .brand-icon{ width: 46px; height: 46px; }
+  .brand-cbi{ font-size: 26px; }
+  .brand-sub{ font-size: 11px; }
 }
