@@ -629,13 +629,25 @@ async function addStudentToRoster() {
   }
 
   try {
-    const rosterRef = collection(db, "teachers", authUser.uid, "classes", selectedClassId, "roster");
-    await addDoc(rosterRef, {
-      email,
-      name: nameRaw,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
+    const rosterDocRef = doc(
+  db,
+  "teachers",
+  authUser.uid,
+  "classes",
+  selectedClassId,
+  "roster",
+  rosterDocId
+);
+
+await setDoc(
+  rosterDocRef,
+  {
+    email: rosterDocId,
+    name: nameRaw,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  },
+  { merge: true }
 
     if ($("rosterEmail")) $("rosterEmail").value = "";
     if ($("rosterName")) $("rosterName").value = "";
@@ -2005,3 +2017,4 @@ document.addEventListener("DOMContentLoaded", () => {
   wireSidebar();
   highlightSidebar("landing");
 });
+
