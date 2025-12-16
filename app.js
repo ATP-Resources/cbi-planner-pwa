@@ -889,9 +889,9 @@ function renderTeacherClassesScreen() {
             ${c.schoolYear ? `<span class="small-note"> - ${escapeHtml(c.schoolYear)}</span>` : ""}
           </div>
           <div style="display: flex; gap: 8px;">
-            <button class="btn-secondary" onclick="openRosterForClass('${c.id}')">Open Roster</button>
-            <button class="btn-secondary" onclick="renameClass('${c.id}')">Rename</button>
-            <button class="btn-secondary" onclick="deleteClass('${c.id}')">Delete</button>
+            <button type="button" class="btn-secondary" onclick="openRosterForClass('${c.id}')">Open Roster</button>
+            <button type="button" class="btn-secondary" onclick="renameClass('${c.id}')">Rename</button>
+            <button type="button" class="btn-secondary" onclick="deleteClass('${c.id}')">Delete</button>
           </div>
         </div>
       </div>
@@ -901,7 +901,7 @@ function renderTeacherClassesScreen() {
     <div class="screen">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
         <h2>My Classes</h2>
-        <button class="btn-secondary" onclick="appSignOut()">
+        <button type="button" class="btn-secondary" onclick="appSignOut()">
           <i class="fa-solid fa-sign-out-alt"></i> Sign Out
         </button>
       </div>
@@ -914,7 +914,9 @@ function renderTeacherClassesScreen() {
         <label for="schoolYear">School Year (optional)</label>
         <input type="text" id="schoolYear" placeholder="e.g., 2024-2025" />
         <div id="createClassError" class="error-text"></div>
-        <button class="btn-primary" style="margin-top: 12px;" onclick="createClassFromForm()">Create Class</button>
+        <button type="button" class="btn-primary" style="margin-top: 12px;" onclick="createClassFromForm()">
+          Create Class
+        </button>
       </div>
     </div>
   `);
@@ -1866,3 +1868,4 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   render();
 });
+
