@@ -114,12 +114,13 @@ function $(id) {
 
 function escapeHtml(value) {
   if (value == null) return "";
+  // Corrected the entity codes
   return String(value)
-    .replaceAll("&", "&amp;") // Fix: Changed from "&"
-    .replaceAll("<", "&lt;") // Fix: Changed from "<"
-    .replaceAll(">", "&gt;") // Fix: Changed from ">"
-    .replaceAll('"', "&quot;") // Fix: Changed from "\""
-    .replaceAll("'", "&#39;"); // Fix: Changed from "'"
+    .replaceAll("&", "&") 
+    .replaceAll("<", "<") 
+    .replaceAll(">", ">") 
+    .replaceAll('"', "\"") 
+    .replaceAll("'", "'"); 
 }
 
 function setAppHtml(html) {
@@ -259,10 +260,10 @@ function openMapsForCurrentTrip() {
     return;
   }
 
-  // FIX: Corrected URL construction (removed extra characters and fixed template literal)
-  const url = `http://maps.google.com/maps?saddr=${encodeURIComponent(
+  // FIX: Corrected template literal and URL parameters for standard Google Maps direction link
+  const url = `https://www.google.com/maps/dir/${encodeURIComponent(
     origin
-  )}&daddr=${encodeURIComponent(destination)}&travelmode=transit`;
+  )}/${encodeURIComponent(destination)}/data=!4m2!4m1!3e3?hl=en&authuser=0&entry=ttu`;
 
   window.open(url, "_blank");
 }
@@ -590,4 +591,148 @@ function startRosterRealtime(teacherUid, classId) {
     snapshot => {
       rosterList = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       refreshRosterAssignmentStatuses().then(() => {
-        if (currentScreen === "classRoster") renderClassR
+        if (currentScreen === "classRoster") renderClassRosterScreen();
+      });
+    },
+    err => {
+      console.error(err);
+      if (currentScreen === "classRoster") {
+        setError("rosterError", err?.message || "Could not load roster. Check rules.");
+      }
+    }
+  );
+}
+
+function openRosterForClass(classId) {
+  if (!authUser) return goTo("teacherAuth");
+
+  selectedClassId = classId;
+  selectedClassMeta = teacherClasses.find(c => c.id === classId) || null;
+
+  startRosterRealtime(authUser.uid, classId);
+  goTo("classRoster");
+}
+
+async function addStudentToRoster() {
+  setError("rosterError", "");
+  if (!authUser || !selectedClassId) return;
+
+  const emailRaw = ($("rosterEmail")?.value || "").trim();
+  const nameRaw = ($("rosterName")?.value || "").trim();
+
+  const emailLower = emailRaw.toLowerCase().trim();
+  if (!emailLower) {
+    setError("rosterError", "Student email is required.");
+    return;
+  }
+  if (!emailLower.includes("@")) {
+    setError("rosterError", "Enter a valid email address.");
+    return;
+  }
+
+  // Use the email as the roster doc id (lowercased)
+  const rosterDocId = emailLower;
+
+  try {
+    const rosterDocRef = doc(
+      db,
+      "teachers",
+      authUser.uid,
+      "classes",
+      selectedClassId,
+      "roster",
+      rosterDocId
+    );
+
+    await setDoc(
+      rosterDocRef,
+      {
+        email: rosterDocId, // stored lowercase for matching
+        name: nameRaw || "",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+
+    if ($("rosterEmail")) $("rosterEmail").value = "";
+    if ($("rosterName")) $("rosterName").value = "";
+  } catch (err) {
+    console.error(err);
+    setError("rosterError", err?.message || "Could not add student.");
+  }
+}
+
+async function removeStudentFromRoster(rosterId) {
+  if (!authUser || !selectedClassId) return;
+  const ok = confirm("Remove this student from the roster?");
+  if (!ok) return;
+
+  try {
+    const ref = doc(db, "teachers", authUser.uid, "classes", selectedClassId, "roster", rosterId);
+    await deleteDoc(ref);
+  } catch (err) {
+    console.error(err);
+    alert(err?.message || "Could not remove student.");
+  }
+}
+
+/* =========================================================
+   ROSTER STATUS LOOKUP
+   ========================================================= */
+
+function chunkArray(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+async function refreshRosterAssignmentStatuses() {
+  rosterStatusMap = {};
+  if (!authUser || !selectedClassId) return;
+
+  const emails = rosterList
+    .map(r => String(r.email || "").toLowerCase().trim())
+    .filter(Boolean);
+
+  if (!emails.length) return;
+
+  const chunks = chunkArray([...new Set(emails)], 10);
+
+  for (const chunk of chunks) {
+    try {
+      const qStudents = query(collection(db, "students"), where("email", "in", chunk));
+      const snap = await getDocs(qStudents);
+
+      snap.docs.forEach(d => {
+        const data = d.data() || {};
+        const email = String(data.email || "").toLowerCase().trim();
+        if (!email) return;
+
+        const teacherId = data.teacherId || null;
+        const classId = data.classId || null;
+
+        const assignedToThisClass = teacherId === authUser.uid && classId === selectedClassId;
+        const assignedElsewhere = !!(teacherId && classId) && !assignedToThisClass;
+
+        rosterStatusMap[email] = {
+          found: true,
+          studentUid: d.id,
+          teacherId,
+          classId,
+          assignedToThisClass,
+          assignedElsewhere
+        };
+      });
+
+      chunk.forEach(email => {
+        if (!rosterStatusMap[email]) {
+          rosterStatusMap[email] = {
+            found: false,
+            studentUid: null,
+            teacherId: null,
+            classId: null,
+            assignedToThisClass: false,
+            assignedElsewhere: false
+          };
+        }
