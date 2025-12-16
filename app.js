@@ -701,7 +701,8 @@ async function refreshRosterAssignmentStatuses() {
     try {
       const qStudents = query(collection(db, "students"), where("email", "in", chunk));
       const snap = await getDocs(qStudents);
-
+}
+    
       snap.docs.forEach(d => {
         const data = d.data() || {};
         const email = String(data.email || "").toLowerCase().trim();
@@ -909,3 +910,4 @@ function render() {
 
   if (currentScreen === "studentAuth") return renderStudentAuthScreen();
   if (currentScreen ===
+
