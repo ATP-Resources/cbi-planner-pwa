@@ -628,6 +628,39 @@ async function addStudentToRoster() {
     return;
   }
 
+  // Use the email as the roster doc id (lowercased)
+  const rosterDocId = emailLower;
+
+  try {
+    const rosterDocRef = doc(
+      db,
+      "teachers",
+      authUser.uid,
+      "classes",
+      selectedClassId,
+      "roster",
+      rosterDocId
+    );
+
+    await setDoc(
+      rosterDocRef,
+      {
+        email: rosterDocId, // stored lowercase for matching
+        name: nameRaw || "",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+
+    if ($("rosterEmail")) $("rosterEmail").value = "";
+    if ($("rosterName")) $("rosterName").value = "";
+  } catch (err) {
+    console.error(err);
+    setError("rosterError", err?.message || "Could not add student.");
+  }
+}
+
   // Strong recommendation: use the email as the roster doc id (lowercased)
   const rosterDocId = emailLower;
 
@@ -2050,5 +2083,6 @@ document.addEventListener("DOMContentLoaded", () => {
   wireSidebar();
   highlightSidebar("landing");
 });
+
 
 
