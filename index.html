@@ -29,14 +29,14 @@
     <aside class="sidebar" aria-label="CBI Trip Planner navigation">
       <!-- Brand header -->
       <div class="sidebar-header">
-  <div class="brand">
-    <img class="brand-icon" src="img/cbi-trip-planner-logo.png" alt="CBI Trip Planner icon" />
-    <div class="brand-text">
-      <div class="brand-cbi">CBI</div>
-      <div class="brand-sub">Trip Planner</div>
-    </div>
-  </div>
-</div>
+        <div class="brand">
+          <img class="brand-icon" src="img/cbi-trip-planner-logo.png" alt="CBI Trip Planner icon" />
+          <div class="brand-text">
+            <div class="brand-cbi">CBI</div>
+            <div class="brand-sub">Trip Planner</div>
+          </div>
+        </div>
+      </div>
 
       <nav class="sidebar-nav" aria-label="Screens">
         <button type="button" class="sidebar-item" data-screen="landing">
@@ -70,17 +70,28 @@
 
         <button type="button" class="sidebar-item" data-screen="planDestination">
           <i class="fa-solid fa-location-dot"></i>
-          <span>Step 1</span>
+          <span>Step 1: Destination</span>
         </button>
 
         <button type="button" class="sidebar-item" data-screen="mapsInstructions">
           <i class="fa-solid fa-map"></i>
-          <span>Step 2</span>
+          <span>Step 2: Maps</span>
         </button>
 
         <button type="button" class="sidebar-item" data-screen="routeDetails">
           <i class="fa-solid fa-bus-simple"></i>
-          <span>Step 3 and 4</span>
+          <span>Step 3: Routes</span>
+        </button>
+
+        <button type="button" class="sidebar-item" data-screen="purposeScreen">
+          <i class="fa-solid fa-bullseye"></i>
+          <span>Step 4: Purpose</span>
+        </button>
+
+        <!-- NEW: Weather Planning -->
+        <button type="button" class="sidebar-item" data-screen="weatherPlanning">
+          <i class="fa-solid fa-cloud-sun"></i>
+          <span>Step 5: Weather</span>
         </button>
 
         <button type="button" class="sidebar-item" data-screen="summary">
@@ -105,4 +116,3 @@
   <script type="module" src="app.js"></script>
 </body>
 </html>
-
